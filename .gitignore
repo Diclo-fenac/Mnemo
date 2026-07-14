@@ -1,0 +1,11 @@
+# Frontend build artifacts
+node_modules/
+dist/
+
+# Rust build artifacts
+src-tauri/target/
+
+# Local application data and editor state
+.env
+.env.*
+.DS_Store
