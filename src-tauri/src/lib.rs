@@ -10,11 +10,13 @@ use tauri::Manager;
 use crate::{services::db, state::AppState};
 
 use tauri_plugin_global_shortcut::{GlobalShortcutExt, Shortcut, ShortcutState};
+use tauri_plugin_autostart::MacosLauncher;
 
 pub fn run() {
     env_logger::init();
 
     tauri::Builder::default()
+        .plugin(tauri_plugin_autostart::init(MacosLauncher::LaunchAgent, Some(vec![])))
         .plugin(tauri_plugin_global_shortcut::Builder::new().with_handler(|app, shortcut, event| {
             if event.state() == ShortcutState::Pressed {
                 let popup_shortcut = "CommandOrControl+Shift+V".parse::<Shortcut>().unwrap();
@@ -58,6 +60,20 @@ pub fn run() {
             let popup_shortcut = "CommandOrControl+Shift+V".parse::<Shortcut>().unwrap();
             let _ = app.global_shortcut().register(popup_shortcut);
 
+            let tray = tauri::tray::TrayIconBuilder::new()
+                .tooltip("Mnemo")
+                .on_tray_icon_event(|tray, event| match event {
+                    tauri::tray::TrayIconEvent::Click { button: tauri::tray::MouseButton::Left, button_state: tauri::tray::MouseButtonState::Up, .. } => {
+                        let app = tray.app_handle();
+                        if let Some(main_win) = app.get_webview_window("main") {
+                            let _ = main_win.show();
+                            let _ = main_win.set_focus();
+                        }
+                    }
+                    _ => {}
+                })
+                .build(app)?;
+
             app.manage(app_state);
             Ok(())
         })
@@ -72,6 +88,7 @@ pub fn run() {
             commands::clips::get_session_clips,
             commands::search::hybrid_search,
             commands::graph::get_graph_data,
+            commands::settings::clear_database,
         ])
         .run(tauri::generate_context!())
         .expect("error while running Mnemo");
