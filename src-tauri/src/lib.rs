@@ -24,10 +24,15 @@ pub fn run() {
 
             let db_arc = Arc::new(Mutex::new(db));
 
+            let app_state = AppState::new(db_arc.clone());
+
             // Start clipboard watcher
             services::watcher::start(app.handle().clone(), Arc::clone(&db_arc));
 
-            app.manage(AppState::new(db_arc));
+            // Start background embedder
+            services::embedder::start_embedder(Arc::clone(&db_arc), app_state.embedder.clone());
+
+            app.manage(app_state);
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -38,6 +43,8 @@ pub fn run() {
             commands::clips::delete_clip,
             commands::clips::toggle_pin,
             commands::clips::copy_clip,
+            commands::search::hybrid_search,
+            commands::graph::get_graph_data,
         ])
         .run(tauri::generate_context!())
         .expect("error while running Mnemo");

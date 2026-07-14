@@ -128,7 +128,15 @@ pub fn init_db(app_data_dir: &Path) -> Result<Connection, Box<dyn std::error::Er
     fs::create_dir_all(mnemo_dir.join("images"))?;
 
     let connection = Connection::open(database_path(&mnemo_dir))?;
+    sqlite_vec::sqlite3_vec_init(&connection)?;
+
     connection.execute_batch(SCHEMA)?;
+    connection.execute_batch(
+        "CREATE VIRTUAL TABLE IF NOT EXISTS clips_embeddings USING vec0(
+          clip_id TEXT PRIMARY KEY,
+          embedding float[384]
+        );"
+    )?;
     Ok(connection)
 }
 
