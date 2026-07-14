@@ -11,10 +11,17 @@ use uuid::Uuid;
 use crate::models::clip::ClipAddedPayload;
 use crate::services::{active_window, filter};
 
-const POLL_INTERVAL: Duration = Duration::from_millis(500);
-const MAX_CONTENT_LENGTH: usize = 100_000;
+use crate::state::BrowserContext;
 
-pub fn start(app_handle: AppHandle, db: Arc<Mutex<Connection>>) {
+const POLL_INTERVAL: Duration = Duration::from_secs(1);
+const MAX_CONTENT_LENGTH: usize = 100_000;
+const SESSION_TIMEOUT: i64 = 15 * 60; // 15 mins
+
+pub fn start(
+    app_handle: AppHandle, 
+    db: Arc<Mutex<Connection>>, 
+    context_state: Arc<Mutex<Option<BrowserContext>>>
+) {
     thread::spawn(move || {
         log::info!("[watcher] Clipboard watcher started");
 
@@ -32,6 +39,9 @@ pub fn start(app_handle: AppHandle, db: Arc<Mutex<Connection>>) {
             let conn = db.lock().unwrap();
             filter::load_rules(&conn)
         };
+
+        let mut last_copied_at: i64 = 0;
+        let mut current_session_id: Option<String> = None;
 
         loop {
             thread::sleep(POLL_INTERVAL);
@@ -57,10 +67,49 @@ pub fn start(app_handle: AppHandle, db: Arc<Mutex<Connection>>) {
                 continue;
             }
 
+            let now = Utc::now().timestamp();
+            
+            // Session logic
+            if now - last_copied_at > SESSION_TIMEOUT {
+                let sid = Uuid::new_v4().to_string();
+                current_session_id = Some(sid.clone());
+                
+                let conn = db.lock().unwrap();
+                let _ = conn.execute(
+                    "INSERT INTO sessions (id, started_at, ended_at, label) VALUES (?1, ?2, ?3, 'New Session')",
+                    rusqlite::params![sid, now, now],
+                );
+                let _ = conn.execute(
+                    "UPDATE memory_state SET total_sessions = total_sessions + 1 WHERE id = 1",
+                    [],
+                );
+                log::info!("[watcher] Started new session: {}", &sid[..8]);
+            } else if let Some(sid) = &current_session_id {
+                let conn = db.lock().unwrap();
+                let _ = conn.execute(
+                    "UPDATE sessions SET ended_at = ?1, clip_count = clip_count + 1 WHERE id = ?2",
+                    rusqlite::params![now, sid],
+                );
+            }
+            
+            last_copied_at = now;
+
             let window_info = active_window::get_active_window();
+            
+            // Context logic
+            let (mut source_url, mut page_title) = (None, None);
+            {
+                let mut ctx_lock = context_state.lock().unwrap();
+                if let Some(ctx) = ctx_lock.take() {
+                    // Check if context is fresh (within 5 seconds)
+                    if now - ctx.timestamp < 5 {
+                        source_url = Some(ctx.url);
+                        page_title = Some(ctx.title);
+                    }
+                }
+            }
 
             let clip_id = Uuid::new_v4().to_string();
-            let now = Utc::now().timestamp();
             let content_type = detect_content_type(trimmed);
             let language = if content_type == "code" {
                 detect_language(trimmed)
@@ -71,16 +120,19 @@ pub fn start(app_handle: AppHandle, db: Arc<Mutex<Connection>>) {
             {
                 let conn = db.lock().unwrap();
                 let result = conn.execute(
-                    "INSERT INTO clips (id, content, content_type, app_name, window_title, language, copied_at)
-                     VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
+                    "INSERT INTO clips (id, content, content_type, app_name, window_title, language, copied_at, session_id, source_url, page_title)
+                     VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)",
                     rusqlite::params![
                         clip_id,
                         trimmed,
                         content_type,
-                        window_info.app_name,
+                        window_info.app_name.clone(),
                         window_info.window_title,
                         language,
                         now,
+                        current_session_id,
+                        source_url,
+                        page_title
                     ],
                 );
 

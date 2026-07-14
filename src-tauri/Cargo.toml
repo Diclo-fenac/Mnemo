@@ -33,3 +33,5 @@ regex = "1"
 fastembed = "3"
 tokio = { version = "1", features = ["full"] }
 sqlite-vec = "0.1"
+axum = "0.7"
+tower-http = { version = "0.5", features = ["cors"] }

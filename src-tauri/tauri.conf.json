@@ -15,19 +15,22 @@
       {
         "label": "main",
         "title": "Mnemo",
-        "width": 1000,
-        "height": 700,
-        "minWidth": 760,
-        "minHeight": 560,
-        "resizable": true
+        "width": 1024,
+        "height": 720,
+        "minWidth": 800,
+        "minHeight": 600,
+        "hiddenTitle": true,
+        "titleBarStyle": "transparent"
       },
       {
         "label": "popup",
-        "title": "Mnemo Quick Search",
+        "title": "Quick Search",
+        "url": "/popup",
         "width": 600,
         "height": 400,
-        "visible": false,
         "decorations": false,
+        "transparent": true,
+        "visible": false,
         "alwaysOnTop": true,
         "skipTaskbar": true,
         "resizable": false

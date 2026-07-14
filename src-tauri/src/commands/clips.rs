@@ -137,8 +137,6 @@ pub fn copy_clip(state: State<'_, AppState>, id: String) -> Result<bool, String>
         .query_row("SELECT content FROM clips WHERE id = ?1", [&id], |row| {
             row.get(0)
         })
-        .map_err(|e| format!("Clip not found: {e}"))?;
-
     drop(conn);
 
     let mut clipboard = Clipboard::new().map_err(|e| format!("Clipboard unavailable: {e}"))?;
@@ -147,4 +145,45 @@ pub fn copy_clip(state: State<'_, AppState>, id: String) -> Result<bool, String>
         .map_err(|e| format!("Failed to copy: {e}"))?;
 
     Ok(true)
+}
+
+#[tauri::command]
+pub fn get_session_clips(state: State<'_, AppState>, session_id: String) -> Result<Vec<Clip>, String> {
+    let conn = state.db.lock().map_err(|_| "DB unavailable".to_string())?;
+
+    let mut stmt = conn
+        .prepare(
+            "SELECT id, content, content_type, image_path, source_url, page_title,
+                    app_name, window_title, language, session_id, is_pinned,
+                    copied_at, ai_context, created_at
+             FROM clips
+             WHERE session_id = ?1
+             ORDER BY copied_at ASC",
+        )
+        .map_err(|e| format!("Query prepare failed: {e}"))?;
+
+    let clips = stmt
+        .query_map(rusqlite::params![session_id], |row| {
+            Ok(Clip {
+                id: row.get(0)?,
+                content: row.get(1)?,
+                content_type: row.get(2)?,
+                image_path: row.get(3)?,
+                source_url: row.get(4)?,
+                page_title: row.get(5)?,
+                app_name: row.get(6)?,
+                window_title: row.get(7)?,
+                language: row.get(8)?,
+                session_id: row.get(9)?,
+                is_pinned: row.get::<_, i32>(10)? == 1,
+                copied_at: row.get(11)?,
+                ai_context: row.get(12)?,
+                created_at: row.get(13)?,
+            })
+        })
+        .map_err(|e| format!("Query failed: {e}"))?
+        .filter_map(|r| r.ok())
+        .collect();
+
+    Ok(clips)
 }
