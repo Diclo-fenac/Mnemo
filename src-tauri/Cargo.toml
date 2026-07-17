@@ -17,6 +17,8 @@ path = "src/main.rs"
 tauri-build = { version = "2", features = [] }
 
 [dependencies]
+anyhow = "1"
+blake3 = "1"
 chrono = { version = "0.4", default-features = false, features = ["clock"] }
 rusqlite = { version = "0.32", features = ["bundled"] }
 serde = { version = "1", features = ["derive"] }
@@ -26,13 +28,16 @@ tauri-plugin-global-shortcut = "2"
 tauri-plugin-notification = "2"
 thiserror = "2"
 uuid = { version = "1", features = ["v4"] }
+ureq = "2.12"
 arboard = "3"
 env_logger = "0.11"
 log = "0.4"
 regex = "1"
-fastembed = "3"
+fastembed = "=3.14.1"
+# Keep the ONNX Runtime bindings compatible with fastembed's `ort rc.4` wrapper.
+# A loose prerelease constraint otherwise resolves to the incompatible rc.12 release.
+ort-sys = "=2.0.0-rc.4"
 tokio = { version = "1", features = ["full"] }
 sqlite-vec = "0.1"
 axum = "0.7"
-tower-http = { version = "0.5", features = ["cors"] }
 tauri-plugin-autostart = "2"
