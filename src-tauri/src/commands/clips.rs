@@ -1,4 +1,5 @@
 use arboard::Clipboard;
+use rusqlite::params;
 use tauri::State;
 
 use crate::models::clip::Clip;
@@ -10,7 +11,7 @@ pub fn list_clips(
     page: Option<u32>,
     page_size: Option<u32>,
 ) -> Result<Vec<Clip>, String> {
-    let limit = page_size.unwrap_or(50) as i64;
+    let limit = page_size.unwrap_or(50).clamp(1, 200) as i64;
     let offset = ((page.unwrap_or(1).max(1) - 1) as i64) * limit;
 
     let conn = state.db.lock().map_err(|_| "DB unavailable".to_string())?;
@@ -46,8 +47,8 @@ pub fn list_clips(
             })
         })
         .map_err(|e| format!("Query failed: {e}"))?
-        .filter_map(|r| r.ok())
-        .collect();
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(|e| format!("Query row failed: {e}"))?;
 
     Ok(clips)
 }
@@ -87,23 +88,51 @@ pub fn get_clip(state: State<'_, AppState>, id: String) -> Result<Clip, String> 
 #[tauri::command]
 pub fn delete_clip(state: State<'_, AppState>, id: String) -> Result<bool, String> {
     let conn = state.db.lock().map_err(|_| "DB unavailable".to_string())?;
-
-    let _ = conn.execute(
-        "DELETE FROM memory_edges WHERE clip_a_id = ?1 OR clip_b_id = ?1",
-        [&id],
-    );
-
-    let deleted = conn
+    let table = active_embedding_table(&conn)?;
+    let tx = conn
+        .unchecked_transaction()
+        .map_err(|e| format!("Delete transaction failed: {e}"))?;
+    tx.execute(&format!("DELETE FROM {table} WHERE clip_id = ?1"), [&id])
+        .map_err(|e| format!("Embedding delete failed: {e}"))?;
+    let deleted = tx
         .execute("DELETE FROM clips WHERE id = ?1", [&id])
         .map_err(|e| format!("Delete failed: {e}"))?;
-
     if deleted > 0 {
-        let _ = conn.execute(
-            "UPDATE memory_state SET total_clips = MAX(total_clips - 1, 0) WHERE id = 1",
-            [],
-        );
+        let clips: i64 = tx
+            .query_row("SELECT COUNT(*) FROM clips", [], |row| row.get(0))
+            .map_err(|e| format!("State count failed: {e}"))?;
+        let sessions: i64 = tx
+            .query_row("SELECT COUNT(*) FROM sessions", [], |row| row.get(0))
+            .map_err(|e| format!("State count failed: {e}"))?;
+        let edges: i64 = tx
+            .query_row("SELECT COUNT(*) FROM memory_edges", [], |row| row.get(0))
+            .map_err(|e| format!("State count failed: {e}"))?;
+        let facts: i64 = tx
+            .query_row("SELECT COUNT(*) FROM memory_facts", [], |row| row.get(0))
+            .map_err(|e| format!("State count failed: {e}"))?;
+        let stage = if clips >= 200 && sessions >= 5 {
+            "archivor"
+        } else if clips >= 50 {
+            "bindor"
+        } else {
+            "clippy"
+        };
+        tx.execute(
+            "UPDATE memory_state SET current_stage = ?1, total_clips = ?2, total_sessions = ?3,
+             total_edges = ?4, total_facts = ?5, last_analysis = ?6 WHERE id = 1",
+            params![
+                stage,
+                clips,
+                sessions,
+                edges,
+                facts,
+                chrono::Utc::now().timestamp_millis()
+            ],
+        )
+        .map_err(|e| format!("State update failed: {e}"))?;
     }
-
+    tx.commit()
+        .map_err(|e| format!("Delete commit failed: {e}"))?;
     Ok(deleted > 0)
 }
 
@@ -112,11 +141,9 @@ pub fn toggle_pin(state: State<'_, AppState>, id: String) -> Result<bool, String
     let conn = state.db.lock().map_err(|_| "DB unavailable".to_string())?;
 
     let current: bool = conn
-        .query_row(
-            "SELECT is_pinned FROM clips WHERE id = ?1",
-            [&id],
-            |row| row.get::<_, i32>(0).map(|v| v == 1),
-        )
+        .query_row("SELECT is_pinned FROM clips WHERE id = ?1", [&id], |row| {
+            row.get::<_, i32>(0).map(|v| v == 1)
+        })
         .map_err(|e| format!("Clip not found: {e}"))?;
 
     let new_state = !current;
@@ -137,6 +164,7 @@ pub fn copy_clip(state: State<'_, AppState>, id: String) -> Result<bool, String>
         .query_row("SELECT content FROM clips WHERE id = ?1", [&id], |row| {
             row.get(0)
         })
+        .map_err(|e| format!("Clip not found: {e}"))?;
     drop(conn);
 
     let mut clipboard = Clipboard::new().map_err(|e| format!("Clipboard unavailable: {e}"))?;
@@ -148,7 +176,10 @@ pub fn copy_clip(state: State<'_, AppState>, id: String) -> Result<bool, String>
 }
 
 #[tauri::command]
-pub fn get_session_clips(state: State<'_, AppState>, session_id: String) -> Result<Vec<Clip>, String> {
+pub fn get_session_clips(
+    state: State<'_, AppState>,
+    session_id: String,
+) -> Result<Vec<Clip>, String> {
     let conn = state.db.lock().map_err(|_| "DB unavailable".to_string())?;
 
     let mut stmt = conn
@@ -182,8 +213,22 @@ pub fn get_session_clips(state: State<'_, AppState>, session_id: String) -> Resu
             })
         })
         .map_err(|e| format!("Query failed: {e}"))?
-        .filter_map(|r| r.ok())
-        .collect();
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(|e| format!("Query row failed: {e}"))?;
 
     Ok(clips)
+}
+
+fn active_embedding_table(conn: &rusqlite::Connection) -> Result<String, String> {
+    let table = conn
+        .query_row(
+            "SELECT table_name FROM embedding_registry WHERE slot = 'active'",
+            [],
+            |row| row.get::<_, String>(0),
+        )
+        .unwrap_or_else(|_| "clips_embeddings".to_string());
+    if table.is_empty() || !table.chars().all(|c| c.is_ascii_alphanumeric() || c == '_') {
+        return Err("Invalid active embedding table".to_string());
+    }
+    Ok(table)
 }

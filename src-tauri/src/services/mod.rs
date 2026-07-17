@@ -1,6 +1,19 @@
 pub mod active_window;
+pub mod capture_state;
+pub mod content_dedup;
 pub mod db;
-pub mod filter;
-pub mod watcher;
 pub mod embedder;
+pub mod filter;
 pub mod http_server;
+pub mod intelligence;
+pub mod memory_graph;
+pub mod model_loader;
+pub mod model_registry;
+pub mod reranker;
+pub mod retention;
+pub mod search_feedback;
+#[cfg(test)]
+pub mod semantic_benchmark;
+pub mod session_builder;
+pub mod source_intent;
+pub mod watcher;

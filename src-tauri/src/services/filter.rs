@@ -9,21 +9,35 @@ pub struct FilterResult {
 }
 
 pub fn load_rules(db: &Connection) -> Vec<FilterRule> {
-    let mut stmt = db
-        .prepare("SELECT id, rule_type, pattern, action, enabled FROM filter_rules WHERE enabled = 1")
-        .unwrap_or_else(|_| panic!("Failed to prepare filter_rules query"));
+    let mut stmt =
+        match db.prepare("SELECT rule_type, pattern, action FROM filter_rules WHERE enabled = 1") {
+            Ok(statement) => statement,
+            Err(error) => {
+                log::error!("[filter] Could not load rules: {error}");
+                return Vec::new();
+            }
+        };
 
-    stmt.query_map([], |row| {
+    let rows = match stmt.query_map([], |row| {
         Ok(FilterRule {
-            id: row.get(0)?,
-            rule_type: row.get(1)?,
-            pattern: row.get(2)?,
-            action: row.get(3)?,
-            enabled: row.get::<_, i32>(4)? == 1,
+            rule_type: row.get(0)?,
+            pattern: row.get(1)?,
+            action: row.get(2)?,
         })
+    }) {
+        Ok(rows) => rows,
+        Err(error) => {
+            log::error!("[filter] Could not query rules: {error}");
+            return Vec::new();
+        }
+    };
+    rows.filter_map(|row| match row {
+        Ok(rule) => Some(rule),
+        Err(error) => {
+            log::warn!("[filter] Ignoring unreadable rule: {error}");
+            None
+        }
     })
-    .unwrap_or_else(|_| panic!("Failed to query filter_rules"))
-    .filter_map(|r| r.ok())
     .collect()
 }
 

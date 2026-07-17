@@ -1,5 +1,8 @@
 pub mod clips;
-pub mod system;
-pub mod search;
 pub mod graph;
+pub mod memory;
+pub mod models;
+pub mod quality;
+pub mod search;
 pub mod settings;
+pub mod system;

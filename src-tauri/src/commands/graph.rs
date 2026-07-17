@@ -1,13 +1,15 @@
-use tauri::State;
-use serde::Serialize;
 use crate::models::clip::Clip;
 use crate::state::AppState;
+use serde::Serialize;
+use tauri::State;
 
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct GraphData {
     pub nodes: Vec<Clip>,
     pub links: Vec<GraphLink>,
+    pub state: String,
+    pub unconnected_count: usize,
 }
 
 #[derive(Serialize)]
@@ -16,11 +18,14 @@ pub struct GraphLink {
     pub source: String,
     pub target: String,
     pub similarity: f64,
+    pub edge_type: String,
+    pub temporal_weight: f64,
 }
 
 #[tauri::command]
-pub fn get_graph_data(state: State<'_, AppState>) -> Result<GraphData, String> {
+pub fn get_graph_data(state: State<'_, AppState>, limit: Option<i64>) -> Result<GraphData, String> {
     let conn = state.db.lock().map_err(|_| "DB unavailable")?;
+    let limit = limit.unwrap_or(100).clamp(1, 200);
 
     // For Milestone 3, we'll fetch the last 100 clips as nodes.
     let mut stmt = conn
@@ -30,12 +35,12 @@ pub fn get_graph_data(state: State<'_, AppState>) -> Result<GraphData, String> {
                     copied_at, ai_context, created_at
              FROM clips
              ORDER BY copied_at DESC
-             LIMIT 100",
+             LIMIT ?1",
         )
         .map_err(|e| format!("Query prepare failed: {e}"))?;
 
     let nodes: Vec<Clip> = stmt
-        .query_map([], |row| {
+        .query_map([limit], |row| {
             Ok(Clip {
                 id: row.get(0)?,
                 content: row.get(1)?,
@@ -54,24 +59,59 @@ pub fn get_graph_data(state: State<'_, AppState>) -> Result<GraphData, String> {
             })
         })
         .map_err(|e| format!("Query failed: {e}"))?
-        .filter_map(|r| r.ok())
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(|error| format!("Node row decode failed: {error}"))?;
+
+    let mut edge_stmt = conn
+        .prepare(
+            "SELECT clip_a_id, clip_b_id, similarity, edge_type, temporal_weight FROM memory_edges
+             WHERE clip_a_id IN (SELECT id FROM clips ORDER BY copied_at DESC LIMIT ?1)
+               AND clip_b_id IN (SELECT id FROM clips ORDER BY copied_at DESC LIMIT ?1)
+             ORDER BY similarity DESC",
+        )
+        .map_err(|e| format!("Edge query failed: {e}"))?;
+    let links = edge_stmt
+        .query_map([limit], |row| {
+            Ok(GraphLink {
+                source: row.get(0)?,
+                target: row.get(1)?,
+                similarity: row.get(2)?,
+                edge_type: row.get(3)?,
+                temporal_weight: row.get(4)?,
+            })
+        })
+        .map_err(|e| format!("Edge query failed: {e}"))?
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(|error| format!("Edge row decode failed: {error}"))?;
+
+    let connected_ids: std::collections::HashSet<&str> = links
+        .iter()
+        .flat_map(|link| [link.source.as_str(), link.target.as_str()])
         .collect();
+    let unconnected_count = nodes
+        .iter()
+        .filter(|node| !connected_ids.contains(node.id.as_str()))
+        .count();
+    let pending_count: i64 = conn
+        .query_row(
+            "SELECT COUNT(*) FROM clips
+             WHERE is_duplicate = 0 AND embedding_status IN ('pending', 'failed')",
+            [],
+            |row| row.get(0),
+        )
+        .unwrap_or(0);
+    let state = if links.is_empty() && pending_count > 0 {
+        "building"
+    } else if links.is_empty() {
+        "edge_free"
+    } else {
+        "ready"
+    };
 
-    // Since O(N^2) similarity is expensive, we can use the `memory_edges` table 
-    // or just generate dummy links for the canvas visualization to prove it works.
-    let mut links = Vec::new();
-    
-    // Minimal mock linking for testing the d3-force graph
-    for i in 0..nodes.len() {
-        if i > 0 {
-            // Link to the previous node randomly to create a connected graph
-            links.push(GraphLink {
-                source: nodes[i].id.clone(),
-                target: nodes[i - 1].id.clone(),
-                similarity: 0.8,
-            });
-        }
-    }
-
-    Ok(GraphData { nodes, links })
+    Ok(GraphData {
+        nodes,
+        links,
+        state: state.to_string(),
+        unconnected_count,
+    })
 }
