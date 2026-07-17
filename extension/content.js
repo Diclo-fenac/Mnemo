@@ -1,17 +1,18 @@
-document.addEventListener('copy', () => {
-    const context = {
-        url: window.location.href,
-        title: document.title
-    };
+const runtime = globalThis.browser?.runtime ?? globalThis.chrome?.runtime;
 
-    fetch('http://127.0.0.1:17531/context', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(context)
-    }).catch((err) => {
-        // Silently fail if the Mnemo backend is not running
-        console.debug('Mnemo context bridge failed to connect:', err);
+document.addEventListener("copy", () => {
+  if (!runtime) return;
+  const selection = window.getSelection()?.toString().trim() ?? "";
+  const favicon = document.querySelector('link[rel~="icon"]')?.href ?? null;
+  void runtime
+    .sendMessage({
+      type: "mnemo-copy-context",
+      url: window.location.href,
+      title: document.title,
+      faviconUrl: favicon,
+      selectedText: selection.slice(0, 100_000) || null,
+    })
+    .catch(() => {
+      // Mnemo may be closed. Copying must always remain unaffected.
     });
 });
