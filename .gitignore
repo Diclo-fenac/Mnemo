@@ -4,6 +4,12 @@ dist/
 
 # Rust build artifacts
 src-tauri/target/
+src-tauri/.fastembed_cache/
+src-tauri/gen/
+.superpowers/
+.agents/
+.qwen/
+skills-lock.json
 
 # Local application data and editor state
 .env
