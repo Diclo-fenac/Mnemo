@@ -2,20 +2,20 @@
 
 > **Purpose:** Define the Mnemo symbol system and the production constraints for app, tray, sidebar, popup, and empty-state use.
 >
-> **Primary Mark:** `Bookmark Arc`
+> **Primary Mark:** `Trace Loop`
 
 ---
 
 ## Decision
 
-Mnemo should not use the dense network-brain symbol as the shipping icon. That concept is acceptable as exploratory branding, but it fails small-size readability and produces noise in tray and sidebar contexts.
+Mnemo must not use the prior wave-and-dot reference mark. It is retired because it is not original to this project.
 
-The shipping symbol is a simplified `Bookmark Arc`:
+The shipping symbol is `Trace Loop`:
 
-- one bold curved top form
-- one centered dot, notch, or cut detail
-- thick geometry
-- no mesh, no node network, no internal clutter
+- two independent rounded paths that loop toward each other
+- one small offset node showing a remembered connection
+- thick geometry with open negative space
+- no wave silhouette, clipboard, brain, or node mesh
 
 ## Why This Direction
 
@@ -26,7 +26,7 @@ The mark needs to communicate:
 - quiet intelligence
 - premium utility software
 
-The `Bookmark Arc` does that better than:
+The `Trace Loop` does that better than:
 
 - literal brain outlines
 - clipboards
@@ -47,9 +47,9 @@ The symbol should feel closer to a product emblem than an illustration.
 
 ### App Icon
 
-- rounded-square amber container
-- dark cocoa or charcoal symbol
-- subtle depth allowed, but final shape should still read flat
+- rounded-square mineral-charcoal container
+- sage/mist paths with a muted blush node
+- subtle depth allowed, but final shape still reads flat
 
 ### Tray Icon
 
@@ -84,15 +84,9 @@ The current network-brain concept is rejected for production because:
 - tray icon becomes visually muddy
 - weak silhouette memory compared to a simpler emblem
 
-## Candidate Variants
+## Approved Variant
 
-The implementation should generate and compare three `Bookmark Arc` variants:
-
-1. soft arch with centered dot
-2. flatter arch with underslung dot
-3. sharper folded arch with a circular cut
-
-The chosen version should be the one that remains clearest at `16x16`.
+The selected Trace Loop uses a sage upper path, mist lower path, and blush offset node. Its tray version is monochrome and preserves only the silhouette and node.
 
 ## Review Criteria
 

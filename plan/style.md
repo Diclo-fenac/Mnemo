@@ -8,14 +8,14 @@
 
 ## Core Direction
 
-Mnemo uses a warm, premium utility aesthetic:
+Mnemo uses an adaptive signal aesthetic:
 
 - editorial spacing instead of dense dashboards
 - large, restrained typography
 - soft rounded geometry
-- warm neutrals with a single amber accent
-- minimal motion
-- strong icon-first branding
+- deep mineral surfaces with muted pastel signals
+- functional motion capped at 220ms
+- original Trace Loop branding
 
 The app should feel closer to a polished macOS utility than a generic SaaS admin panel.
 
@@ -29,9 +29,9 @@ The product is technically sophisticated, but the UI should not perform intellig
 
 The brand should rely on one strong symbol that scales from tray icon to empty-state watermark. It must survive monochrome rendering and tiny sizes.
 
-### Warm Contrast
+### Subtle Signal Contrast
 
-Primary surfaces should use soft cream and warm white. Amber is reserved for emphasis. Structural contrast comes from charcoal and cocoa, not pure black.
+Primary surfaces use deep mineral charcoal. Sage, mist blue, blush, and butter are reserved for focus, topic, and relationship signals. Structural contrast comes from value, type, and focus states rather than bright accents.
 
 ### Big Type, Short Copy
 
@@ -39,25 +39,25 @@ Page titles and hero text should be confident and spacious. Supporting copy shou
 
 ## Color System
 
-- `Cream`: `#F5F1E8`
-- `Soft White`: `#F8F7F2`
-- `Warm Sand`: `#E8E0CC`
-- `Muted Sage`: `#B8B596`
-- `Golden Amber`: `#F8C557`
-- `Deep Cocoa`: `#5B2F06`
-- `Charcoal`: `#4A4746`
-- `Soft Border`: `#D7D0BE`
-- `Muted Text`: `#7C776A`
+- `Canvas`: `#161B18`
+- `Surface`: `#202824`
+- `Raised Surface`: `#2A342F`
+- `Sage`: `#B8CEA9`
+- `Mist`: `#AFC9D6`
+- `Blush`: `#D9B3BA`
+- `Butter`: `#D7D99F`
+- `Ink`: `#F1F3EC`
+- `Line`: `#3A4840`
+- `Muted Text`: `#AAB4AC`
 
 Usage rules:
 
-- app background: `Cream`
-- main cards and panels: `Soft White`
-- secondary surfaces/sidebar blocks: `Warm Sand` or `Muted Sage`
-- primary accent: `Golden Amber`
-- primary text: `Charcoal`
-- icon/logo contrast: `Deep Cocoa`
-- borders: light, never harsh
+- app background: `Canvas`
+- main cards and panels: `Surface`
+- hover and active surfaces: `Raised Surface`
+- primary text: `Ink`
+- icon/logo signals: `Sage`, `Mist`, and `Blush`
+- borders: `Line`, never high contrast
 
 ## Typography
 
@@ -129,9 +129,9 @@ The entire app should feel softened, but not toy-like.
 
 ### Buttons
 
-- primary: amber fill, cocoa text
-- secondary: pale surface with border
-- destructive: muted red, used sparingly
+- primary: butter fill, mineral-dark text
+- secondary: surface with mineral border
+- destructive: muted blush, used sparingly
 
 ### Inputs
 
