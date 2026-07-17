@@ -1,3 +1,13 @@
+import { useAppStore } from "../store/app";
+
 export function MascotIndicator() {
-  return <div className="mascot" aria-label="Mnemo intelligence stage">&#128206; Clippy <span aria-hidden="true">&middot;</span> preparing memory</div>;
+  const bootstrap = useAppStore((state) => state.bootstrap);
+  const stage = bootstrap?.stage || "clippy";
+  const details = {
+    clippy: ["📎", "Clippy", "capturing memories"],
+    bindor: ["🔗", "Bindor", "recognizing patterns"],
+    archivor: ["🗄️", "Archivor", "connecting research"],
+  } as const;
+  const [icon, label, message] = details[stage] || details.clippy;
+  return <div className="mascot" aria-label={`Mnemo intelligence stage: ${label}`}>{icon} {label} <span aria-hidden="true">&middot;</span> {bootstrap?.embeddingStatus === "loading" ? "preparing model" : message}</div>;
 }

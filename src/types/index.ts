@@ -6,6 +6,13 @@ export type BootstrapState = {
   stage: IntelligenceStage;
 };
 
+export type CapturePreferences = {
+  captureEnabled: boolean;
+  browserContextEnabled: boolean;
+  autoDeleteDays: number | null;
+  appearance: "dark" | "light" | "system";
+};
+
 export type Clip = {
   id: string;
   content: string;
@@ -30,3 +37,36 @@ export type ClipAddedPayload = {
   appName: string | null;
   copiedAt: number;
 };
+
+export type MatchReason = {
+  reasonType: string;
+  label: string;
+  weight: number;
+};
+
+export type SearchResult = {
+  clip: Clip;
+  duplicateCount: number;
+  searchType: string;
+  score: number;
+  matchReasons: MatchReason[];
+};
+
+export type SessionSummary = {
+  id: string;
+  label: string;
+  summary: string;
+  keyTopics: string[];
+  sourceApps: string[];
+  sourceUrls: string[];
+  clipCount: number;
+  startedAt: number;
+  endedAt: number;
+  durationMs: number;
+};
+
+export type SourceStat = { label: string; count: number; sourceType: "web" | "app" };
+export type SessionConnection = { clipId: string; contentPreview: string; similarity: number; copiedAt: number };
+export type SessionReconstruction = { session: SessionSummary; clips: Clip[]; sourceBreakdown: SourceStat[]; connections: SessionConnection[] };
+export type RelatedClip = { id: string; content: string; sourceUrl: string | null; pageTitle: string | null; appName: string | null; copiedAt: number; similarity: number; edgeType: string };
+export type ClipContext = { source: string; likelyPurpose: string; topicTags: string[] };

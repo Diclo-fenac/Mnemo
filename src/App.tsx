@@ -1,17 +1,51 @@
-import { Route, Routes, useLocation } from "react-router-dom";
+import { lazy, Suspense, useEffect } from "react";
+import { Route, Routes, useNavigate } from "react-router-dom";
 import { MascotIndicator } from "./components/MascotIndicator";
 import { Sidebar } from "./components/Sidebar";
-import { ClipDetail } from "./pages/ClipDetail";
-import { MemoryGraph } from "./pages/MemoryGraph";
-import { Search } from "./pages/Search";
-import { SessionReconstruction } from "./pages/SessionReconstruction";
-import { Settings } from "./pages/Settings";
-import { Timeline } from "./pages/Timeline";
 import { QuickSearchPopup } from "./pages/QuickSearchPopup";
 import { useClipEvents } from "./hooks/useClipEvents";
+import { invoke } from "@tauri-apps/api/core";
+import { useAppStore } from "./store/app";
+import type { BootstrapState, CapturePreferences } from "./types";
+
+const Timeline = lazy(() => import("./pages/Timeline").then((module) => ({ default: module.Timeline })));
+const Memory = lazy(() => import("./pages/Memory").then((module) => ({ default: module.Memory })));
+const Search = lazy(() => import("./pages/Search").then((module) => ({ default: module.Search })));
+const SessionReconstruction = lazy(() => import("./pages/SessionReconstruction").then((module) => ({ default: module.SessionReconstruction })));
+const MemoryGraph = lazy(() => import("./pages/MemoryGraph").then((module) => ({ default: module.MemoryGraph })));
+const ClipDetail = lazy(() => import("./pages/ClipDetail").then((module) => ({ default: module.ClipDetail })));
+const Settings = lazy(() => import("./pages/Settings").then((module) => ({ default: module.Settings })));
+const Quality = lazy(() => import("./pages/Quality").then((module) => ({ default: module.Quality })));
 
 export default function App() {
   useClipEvents();
+  const navigate = useNavigate();
+  const setBootstrap = useAppStore((state) => state.setBootstrap);
+  const capturePreferences = useAppStore((state) => state.capturePreferences);
+  const setCapturePreferences = useAppStore((state) => state.setCapturePreferences);
+  useEffect(() => { invoke<BootstrapState>("get_bootstrap_state").then(setBootstrap).catch(() => setBootstrap(null)); }, [setBootstrap]);
+  useEffect(() => { invoke<CapturePreferences>("get_capture_preferences").then(setCapturePreferences).catch(() => undefined); }, [setCapturePreferences]);
+  useEffect(() => {
+    if (!capturePreferences) return;
+    document.documentElement.dataset.theme = capturePreferences.appearance;
+  }, [capturePreferences]);
+  useEffect(() => {
+    function onKeyDown(event: KeyboardEvent) {
+      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k") {
+        event.preventDefault();
+        const sidebarSearch = document.querySelector<HTMLInputElement>("[data-sidebar-search]");
+        if (sidebarSearch && sidebarSearch.getClientRects().length > 0) {
+          sidebarSearch.focus();
+          sidebarSearch.select();
+          return;
+        }
+        navigate("/search");
+        requestAnimationFrame(() => document.querySelector<HTMLInputElement>("[data-mnemo-search]")?.focus());
+      }
+    }
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [navigate]);
   
   // Tauri sets url to "/popup" for the popup window
   const isPopup = window.location.pathname === '/popup';
@@ -24,14 +58,18 @@ export default function App() {
     <div className="app-frame">
       <Sidebar />
       <main className="app-content">
-        <Routes>
-          <Route path="/" element={<Timeline />} />
-          <Route path="/search" element={<Search />} />
-          <Route path="/session/:id" element={<SessionReconstruction />} />
-          <Route path="/graph" element={<MemoryGraph />} />
-          <Route path="/clip/:id" element={<ClipDetail />} />
-          <Route path="/settings" element={<Settings />} />
-        </Routes>
+        <Suspense fallback={<section className="page"><div className="skeleton-stack"><div /><div /><div /></div></section>}>
+          <Routes>
+            <Route path="/" element={<Memory />} />
+            <Route path="/timeline" element={<Timeline />} />
+            <Route path="/search" element={<Search />} />
+            <Route path="/session/:id" element={<SessionReconstruction />} />
+            <Route path="/graph" element={<MemoryGraph />} />
+            <Route path="/clip/:id" element={<ClipDetail />} />
+            <Route path="/settings" element={<Settings />} />
+            <Route path="/quality" element={<Quality />} />
+          </Routes>
+        </Suspense>
       </main>
       <MascotIndicator />
     </div>

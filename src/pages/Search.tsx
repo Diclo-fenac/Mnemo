@@ -1,27 +1,44 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { Search as SearchIcon, Loader2 } from "lucide-react";
+import { useSearchParams } from "react-router-dom";
 import { ClipCard } from "../components/ClipCard";
-import type { Clip } from "../types";
+import { GroundedBrief } from "../components/GroundedBrief";
+import type { SearchResult } from "../types";
 
 export function Search() {
-  const [query, setQuery] = useState("");
-  const [results, setResults] = useState<Clip[]>([]);
+  const [params] = useSearchParams();
+  const requestedQuery = params.get("q") ?? "";
+  const [query, setQuery] = useState(requestedQuery);
+  const [results, setResults] = useState<SearchResult[]>([]);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  async function handleSearch(e: React.FormEvent) {
-    e.preventDefault();
-    if (!query.trim()) return;
+  async function search(searchQuery: string) {
+    const normalized = searchQuery.trim();
+    if (!normalized) return;
 
     setLoading(true);
+    setError(null);
     try {
-      const clips = await invoke<Clip[]>("hybrid_search", { query });
-      setResults(clips);
-    } catch (e) {
-      console.error(e);
+      const searchResults = await invoke<SearchResult[]>("hybrid_search", { query: normalized });
+      setResults(searchResults);
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : "Search failed. Try again.");
     } finally {
       setLoading(false);
     }
+  }
+
+  useEffect(() => {
+    if (!requestedQuery.trim()) return;
+    setQuery(requestedQuery);
+    void search(requestedQuery);
+  }, [requestedQuery]);
+
+  function handleSearch(event: React.FormEvent) {
+    event.preventDefault();
+    void search(query);
   }
 
   return (
@@ -31,6 +48,7 @@ export function Search() {
           <SearchIcon className="absolute left-4 top-1/2 -translate-y-1/2 text-[var(--color-muted)]" size={18} />
           <input
             type="text"
+            data-mnemo-search
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Search by keywords or meaning (e.g., 'React hooks context')..."
@@ -42,16 +60,24 @@ export function Search() {
       </div>
       
       <div className="flex-1 overflow-y-auto pr-2 pb-8">
-        {results.length > 0 ? (
-          <div className="clips-list">
-            {results.map((clip) => (
-              <ClipCard key={clip.id} clip={clip} />
+        {error && <div className="error-banner" role="alert">{error}</div>}
+        {loading && <div className="skeleton-stack search-skeleton"><div /><div /><div /></div>}
+        {!loading && results.length > 0 ? (
+          <><GroundedBrief query={query} results={results} /><div className="clips-list">
+            {results.map((result) => (
+              <div className="search-result" key={result.clip.id}>
+                <ClipCard density="compact" clip={result.clip} feedbackQuery={query} feedbackRank={results.indexOf(result) + 1} />
+                {result.duplicateCount > 0 && <p className="text-xs text-[var(--color-muted)]">Copied {result.duplicateCount + 1} times</p>}
+                <p className="mt-1 text-xs text-[var(--color-muted)]">
+                  {result.matchReasons.map((reason) => reason.label).join(" · ")}
+                </p>
+              </div>
             ))}
-          </div>
+          </div></>
         ) : (
           !loading && query.length > 0 && (
-            <div className="text-center text-[var(--color-muted)] mt-12">
-              No results found for "{query}".
+            <div className="empty-inline">
+              <strong>No matching memories</strong><span>Try a source, topic, code identifier, or a shorter phrase for “{query}”.</span>
             </div>
           )
         )}
