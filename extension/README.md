@@ -13,18 +13,23 @@ copies content and Browser Context is enabled in Mnemo Settings.
 The current Mnemo MVP receives URL/title over a loopback-only listener at
 `127.0.0.1:17531`. It never sends this data to a remote server.
 
-## Development install
+## Private beta install
 
 1. Enable **Browser context** in Mnemo Settings.
-2. Chromium: open `chrome://extensions`, enable Developer Mode, choose **Load
-   unpacked**, then select this `extension` directory.
-3. Firefox: use `about:debugging#/runtime/this-firefox`, choose **Load
-   Temporary Add-on**, and select `manifest.firefox.json` after copying it to
-   the extension directory as `manifest.json` for the temporary load.
+2. Chrome/Chromium beta users install the unlisted Web Store package shared by
+   the beta coordinator. The source package can also be loaded with Developer
+   Mode and **Load unpacked** for local testing.
+3. Firefox beta users download the `.xpi` package from the GitHub Release, open
+   `about:debugging#/runtime/this-firefox`, choose **Load Temporary Add-on**,
+   and select the package. Firefox temporary extensions are removed after a
+   browser restart, so repeat this step when needed.
+4. Copy text from a normal web page and open the resulting clip in Mnemo. A
+   page URL/title confirms the bridge is working; no URL means the app remains
+   safe and labels the source as unavailable.
 
-## Production transport
+## Transport and privacy
 
-For packaged releases, use a native-messaging host registered by the Mnemo
-installer. Native messaging restricts access to the known extension ID and
-avoids a loopback HTTP listener. The loopback bridge remains the low-friction
-development transport.
+The private beta uses the loopback bridge at `127.0.0.1:17531`. The app accepts
+the payload only while Browser Context is enabled and matches it to the next
+clipboard event; the extension never creates an independent clip row. No page
+content is collected passively and no payload leaves the device.

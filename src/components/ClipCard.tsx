@@ -5,6 +5,7 @@ import { useState } from "react";
 import { useClipsStore } from "../store/clips";
 import type { Clip } from "../types";
 import { timeAgo } from "../lib/presentation";
+import { deriveSourceProvenance } from "../lib/sourceProvenance";
 
 const typeIcons = { url: Globe, code: Code, text: FileText } as const;
 
@@ -21,6 +22,7 @@ export function ClipCard({ clip, feedbackQuery, feedbackRank, density = "reading
   const [actionError, setActionError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const TypeIcon = typeIcons[clip.contentType as keyof typeof typeIcons] ?? FileText;
+  const provenance = deriveSourceProvenance(clip);
 
   const preview =
     clip.content.length > 200
@@ -53,7 +55,7 @@ export function ClipCard({ clip, feedbackQuery, feedbackRank, density = "reading
       <div className="clip-header">
         <div className="clip-meta">
           <TypeIcon size={14} />
-          {clip.appName && <span>{clip.appName}</span>}
+          {provenance.kind === "unavailable" ? <span className="source-unavailable" title={provenance.detail}>{provenance.label}</span> : <span>{provenance.label}</span>}
           {clip.language && <span className="clip-lang">{clip.language}</span>}
           <span className="clip-time">{timeAgo(clip.copiedAt)}</span>
         </div>

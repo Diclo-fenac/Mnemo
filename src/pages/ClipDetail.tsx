@@ -5,6 +5,7 @@ import hljs from "highlight.js/lib/common";
 import { ArrowLeft, Check, ClipboardCopy, Lightbulb, MapPin, Network, Pin, Tag } from "lucide-react";
 import type { Clip, ClipContext, RelatedClip } from "../types";
 import { timeAgo } from "../lib/presentation";
+import { deriveSourceProvenance } from "../lib/sourceProvenance";
 
 const MAX_HIGHLIGHT_LENGTH = 20_000;
 
@@ -38,6 +39,7 @@ export function ClipDetail() {
   if (loading) return <section className="page"><div className="skeleton-stack detail-skeleton"><div /><div /><div /></div></section>;
   if (!clip) return <section className="page"><p className="eyebrow">Clip detail</p><h1 className="page-title">Clip unavailable</h1>{error && <p className="muted-copy" role="alert">{error}</p>}<Link className="session-link" to="/">Return to timeline</Link></section>;
   const isCode = clip.contentType === "code" || Boolean(clip.language);
+  const provenance = deriveSourceProvenance(clip);
   const lines = clip.content.split("\n");
   const displayContent = expanded ? clip.content : lines.slice(0, 10).join("\n");
   let highlighted = "";
@@ -52,7 +54,7 @@ export function ClipDetail() {
     <div className="detail-layout">
       <section className="content-panel"><pre className={isCode ? "code-block hljs" : "code-block"} {...(highlighted ? { dangerouslySetInnerHTML: { __html: highlighted } } : {})}>{highlighted ? undefined : displayContent}</pre>{lines.length > 10 && <button className="text-button" onClick={() => setExpanded((value) => !value)}>{expanded ? "Show less" : `Show all ${lines.length} lines`}</button>}</section>
       <aside className="detail-context-rail">
-        <section className="context-card"><div className="context-title"><Lightbulb size={17} /><h2>Why did I copy this?</h2></div><dl><div><dt><MapPin size={15} /> Copied from</dt><dd>{context?.source || "Unknown source"} · {clip.appName || "Unknown app"}</dd></div><div><dt><Lightbulb size={15} /> Likely purpose</dt><dd>{context?.likelyPurpose || "General reference"}</dd></div><div><dt><Tag size={15} /> Topic tags</dt><dd>{context?.topicTags?.length ? context.topicTags.map((tag) => <span className="tag" key={tag}>{tag}</span>) : "Still learning this clip"}</dd></div></dl></section>
+        <section className="context-card"><div className="context-title"><Lightbulb size={17} /><h2>Why did I copy this?</h2></div><dl><div><dt><MapPin size={15} /> Copied from</dt><dd className={provenance.kind === "unavailable" ? "source-unavailable" : undefined}>{provenance.label}{provenance.kind === "unavailable" ? <small>{provenance.detail} Enable Browser Context for verified web URLs and titles.</small> : <small>{provenance.detail}</small>}</dd></div><div><dt><Lightbulb size={15} /> Likely purpose</dt><dd>{context?.likelyPurpose || "General reference"}</dd></div><div><dt><Tag size={15} /> Topic tags</dt><dd>{context?.topicTags?.length ? context.topicTags.map((tag) => <span className="tag" key={tag}>{tag}</span>) : "Still learning this clip"}</dd></div></dl></section>
         <section className="related-section"><div className="context-title"><Network size={17} /><h2>Memory connections</h2></div>{related.length ? <div className="related-list">{related.map((item) => <Link className="related-row" to={`/clip/${item.id}`} key={item.id}><span>{item.content.slice(0, 120)}{item.content.length > 120 ? "..." : ""}</span><small>{Math.round(item.similarity * 100)}% · {timeAgo(item.copiedAt)}</small></Link>)}</div> : <p className="muted-copy">No strong connections yet. Mnemo will link this as your memory grows.</p>}</section>
       </aside>
     </div>

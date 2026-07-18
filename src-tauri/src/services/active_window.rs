@@ -47,6 +47,11 @@ fn get_active_window_linux() -> WindowInfo {
     if let Some(window) = gnome_shell_active_window() {
         return window;
     }
+    // Optional X11 utility fallback. AppImage users do not need this package;
+    // it only improves attribution on systems where the probes above fail.
+    if let Some(window) = xdotool_active_window() {
+        return window;
+    }
     WindowInfo::default()
 }
 
@@ -180,6 +185,34 @@ fn gnome_shell_active_window() -> Option<WindowInfo> {
     })
 }
 
+#[cfg(target_os = "linux")]
+fn xdotool_active_window() -> Option<WindowInfo> {
+    let title = std::process::Command::new("xdotool")
+        .args(["getactivewindow", "getwindowname"])
+        .output()
+        .ok()?;
+    if !title.status.success() {
+        return None;
+    }
+    let title = String::from_utf8_lossy(&title.stdout).trim().to_string();
+    let pid = std::process::Command::new("xdotool")
+        .args(["getactivewindow", "getwindowpid"])
+        .output()
+        .ok()?;
+    if !pid.status.success() {
+        return None;
+    }
+    let pid = String::from_utf8_lossy(&pid.stdout)
+        .trim()
+        .parse::<u32>()
+        .ok()?;
+    let app_name = std::fs::read_to_string(format!("/proc/{pid}/comm"))
+        .ok()
+        .map(|value| value.trim().to_string())
+        .filter(|value| !value.is_empty())?;
+    parse_xdotool_window(&app_name, &title)
+}
+
 #[cfg(target_os = "macos")]
 fn get_active_window_macos() -> WindowInfo {
     let script = r#"
@@ -294,6 +327,18 @@ fn extract_json_string(json: &str, key: &str) -> String {
     after_open[..close].to_string()
 }
 
+#[cfg(target_os = "linux")]
+fn parse_xdotool_window(app_name: &str, window_title: &str) -> Option<WindowInfo> {
+    let app_name = app_name.trim();
+    if app_name.is_empty() {
+        return None;
+    }
+    Some(WindowInfo {
+        app_name: app_name.to_string(),
+        window_title: window_title.trim().to_string(),
+    })
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -322,5 +367,18 @@ mod tests {
             ),
             "org.gnome.Terminal"
         );
+    }
+
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn parses_optional_xdotool_metadata() {
+        assert_eq!(
+            parse_xdotool_window("firefox", "Mnemo - Mozilla Firefox"),
+            Some(WindowInfo {
+                app_name: "firefox".into(),
+                window_title: "Mnemo - Mozilla Firefox".into(),
+            })
+        );
+        assert_eq!(parse_xdotool_window("", "Terminal"), None);
     }
 }

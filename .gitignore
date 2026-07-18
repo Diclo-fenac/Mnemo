@@ -1,6 +1,7 @@
 # Frontend build artifacts
 node_modules/
 dist/
+artifacts/extension/
 
 # Rust build artifacts
 src-tauri/target/
@@ -15,3 +16,5 @@ skills-lock.json
 .env
 .env.*
 .DS_Store
+.tauri-updater/
+*.key
