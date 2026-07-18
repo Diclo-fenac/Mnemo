@@ -6,6 +6,7 @@ import { QuickSearchPopup } from "./pages/QuickSearchPopup";
 import { useClipEvents } from "./hooks/useClipEvents";
 import { invoke } from "@tauri-apps/api/core";
 import { useAppStore } from "./store/app";
+import { useUpdateCheck } from "./hooks/useUpdateCheck";
 import type { BootstrapState, CapturePreferences } from "./types";
 
 const Timeline = lazy(() => import("./pages/Timeline").then((module) => ({ default: module.Timeline })));
@@ -19,11 +20,23 @@ const Quality = lazy(() => import("./pages/Quality").then((module) => ({ default
 
 export default function App() {
   useClipEvents();
+  useUpdateCheck();
   const navigate = useNavigate();
   const setBootstrap = useAppStore((state) => state.setBootstrap);
   const capturePreferences = useAppStore((state) => state.capturePreferences);
   const setCapturePreferences = useAppStore((state) => state.setCapturePreferences);
-  useEffect(() => { invoke<BootstrapState>("get_bootstrap_state").then(setBootstrap).catch(() => setBootstrap(null)); }, [setBootstrap]);
+  useEffect(() => {
+    let mounted = true;
+    const refresh = () => invoke<BootstrapState>("get_bootstrap_state").then((next) => { if (mounted) setBootstrap(next); }).catch(() => { if (mounted) setBootstrap(null); });
+    void refresh();
+    return () => { mounted = false; };
+  }, [setBootstrap]);
+  const bootstrap = useAppStore((state) => state.bootstrap);
+  useEffect(() => {
+    if (!bootstrap || !["deferred", "loading"].includes(bootstrap.embeddingStatus)) return;
+    const interval = window.setInterval(() => { void invoke<BootstrapState>("get_bootstrap_state").then(setBootstrap).catch(() => undefined); }, 1500);
+    return () => window.clearInterval(interval);
+  }, [bootstrap, setBootstrap]);
   useEffect(() => { invoke<CapturePreferences>("get_capture_preferences").then(setCapturePreferences).catch(() => undefined); }, [setCapturePreferences]);
   useEffect(() => {
     if (!capturePreferences) return;

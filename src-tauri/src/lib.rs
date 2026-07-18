@@ -20,6 +20,7 @@ pub fn run() {
             MacosLauncher::LaunchAgent,
             Some(vec![]),
         ))
+        .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(
             tauri_plugin_global_shortcut::Builder::new()
                 .with_handler(|app, shortcut, event| {
@@ -104,13 +105,16 @@ pub fn run() {
                 app_state.browser_context_enabled.clone(),
             );
 
-            // Start background embedder
-            services::embedder::start_embedder(
-                Arc::clone(&db_arc),
-                app_state.embedder.clone(),
-                app_state.embedding_status.clone(),
-                app_state.model_cache_dir.clone(),
-            );
+            // Model download waits until onboarding has completed.
+            if preferences.onboarding_completed {
+                services::embedder::start_embedder(
+                    Arc::clone(&db_arc),
+                    app_state.embedder.clone(),
+                    app_state.embedding_status.clone(),
+                    app_state.model_cache_dir.clone(),
+                    app_state.model_start_requested.clone(),
+                );
+            }
             services::reranker::start();
 
             let popup_shortcut = "CommandOrControl+Shift+V".parse::<Shortcut>().unwrap();
@@ -164,6 +168,8 @@ pub fn run() {
             commands::settings::clear_database,
             commands::settings::get_capture_preferences,
             commands::settings::update_capture_preferences,
+            commands::settings::complete_onboarding,
+            commands::settings::retry_embedding_model,
         ])
         .run(tauri::generate_context!())
         .expect("error while running Mnemo");

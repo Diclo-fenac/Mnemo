@@ -3,7 +3,7 @@ use crate::{
     state::AppState,
 };
 use serde::Deserialize;
-use tauri::State;
+use tauri::{Emitter, State};
 
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -12,6 +12,7 @@ pub struct CapturePreferencesInput {
     pub browser_context_enabled: bool,
     pub auto_delete_days: Option<i64>,
     pub appearance: String,
+    pub onboarding_completed: bool,
 }
 
 #[tauri::command]
@@ -38,6 +39,7 @@ pub fn update_capture_preferences(
         browser_context_enabled: preferences.browser_context_enabled,
         auto_delete_days: preferences.auto_delete_days,
         appearance: preferences.appearance,
+        onboarding_completed: preferences.onboarding_completed,
     };
     let conn = state.db.lock().map_err(|_| "DB unavailable".to_string())?;
     capture_state::persist(&conn, &next)
@@ -50,6 +52,61 @@ pub fn update_capture_preferences(
         }
     }
     Ok(next)
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CompleteOnboardingInput {
+    pub capture_enabled: bool,
+}
+
+#[tauri::command]
+pub fn complete_onboarding(
+    app: tauri::AppHandle,
+    state: State<'_, AppState>,
+    input: CompleteOnboardingInput,
+) -> Result<CapturePreferences, String> {
+    let next = {
+        let conn = state.db.lock().map_err(|_| "DB unavailable".to_string())?;
+        let mut preferences = capture_state::load(&conn)
+            .map_err(|error| format!("Unable to load preferences: {error}"))?;
+        preferences.onboarding_completed = true;
+        preferences.capture_enabled = input.capture_enabled;
+        capture_state::persist(&conn, &preferences)
+            .map_err(|error| format!("Unable to save onboarding: {error}"))?;
+        preferences
+    };
+
+    capture_state::set_enabled(&state.capture_enabled, next.capture_enabled);
+    if crate::services::embedder::start_embedder(
+        state.db.clone(),
+        state.embedder.clone(),
+        state.embedding_status.clone(),
+        state.model_cache_dir.clone(),
+        state.model_start_requested.clone(),
+    ) {
+        let _ = app.emit("embedding-state-changed", "loading");
+    }
+    Ok(next)
+}
+
+#[tauri::command]
+pub fn retry_embedding_model(
+    app: tauri::AppHandle,
+    state: State<'_, AppState>,
+) -> Result<bool, String> {
+    state.reset_model_start_request();
+    if crate::services::embedder::start_embedder(
+        state.db.clone(),
+        state.embedder.clone(),
+        state.embedding_status.clone(),
+        state.model_cache_dir.clone(),
+        state.model_start_requested.clone(),
+    ) {
+        let _ = app.emit("embedding-state-changed", "loading");
+        return Ok(true);
+    }
+    Ok(false)
 }
 
 #[tauri::command]

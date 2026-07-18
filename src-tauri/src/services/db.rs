@@ -100,13 +100,14 @@ CREATE TABLE IF NOT EXISTS settings (
   id INTEGER PRIMARY KEY DEFAULT 1,
   hotkey TEXT NOT NULL DEFAULT 'CmdOrCtrl+Shift+V',
   storage_limit INTEGER DEFAULT 10000,
-  auto_delete_days INTEGER DEFAULT 30,
+  auto_delete_days INTEGER,
   extension_enabled INTEGER DEFAULT 0,
   ollama_enabled INTEGER DEFAULT 0,
   ollama_url TEXT DEFAULT 'http://localhost:11434',
-  capture_enabled INTEGER NOT NULL DEFAULT 1,
+  capture_enabled INTEGER NOT NULL DEFAULT 0,
   browser_context_enabled INTEGER NOT NULL DEFAULT 0,
-  appearance TEXT NOT NULL DEFAULT 'dark'
+  appearance TEXT NOT NULL DEFAULT 'dark',
+  onboarding_completed INTEGER NOT NULL DEFAULT 0
 );
 
 CREATE TABLE IF NOT EXISTS embedding_registry (
@@ -342,6 +343,7 @@ fn migrate_columns(connection: &Connection) -> Result<(), Box<dyn std::error::Er
         ("capture_enabled", "INTEGER NOT NULL DEFAULT 1"),
         ("browser_context_enabled", "INTEGER NOT NULL DEFAULT 0"),
         ("appearance", "TEXT NOT NULL DEFAULT 'dark'"),
+        ("onboarding_completed", "INTEGER NOT NULL DEFAULT 0"),
     ];
     for (name, definition) in settings_additions {
         if !settings_columns.contains(name) {
@@ -421,6 +423,27 @@ mod tests {
         assert!(definition
             .to_ascii_lowercase()
             .contains("distance_metric=cosine"));
+        drop(connection);
+        std::fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn fresh_settings_require_capture_consent_and_keep_everything() {
+        let root = temporary_app_dir();
+        let connection = init_db(&root).unwrap();
+        let (capture_enabled, browser_context_enabled, auto_delete_days): (i32, i32, Option<i64>) =
+            connection
+                .query_row(
+                    "SELECT capture_enabled, browser_context_enabled, auto_delete_days
+                     FROM settings WHERE id = 1",
+                    [],
+                    |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)),
+                )
+                .unwrap();
+
+        assert_eq!(capture_enabled, 0);
+        assert_eq!(browser_context_enabled, 0);
+        assert_eq!(auto_delete_days, None);
         drop(connection);
         std::fs::remove_dir_all(root).unwrap();
     }

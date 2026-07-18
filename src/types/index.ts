@@ -2,8 +2,15 @@ export type IntelligenceStage = "clippy" | "bindor" | "archivor";
 
 export type BootstrapState = {
   databaseReady: boolean;
+  onboardingCompleted: boolean;
   embeddingStatus: "deferred" | "loading" | "ready" | "unavailable";
   stage: IntelligenceStage;
+};
+
+export type UpdateState = {
+  status: "idle" | "checking" | "current" | "available" | "error";
+  version?: string;
+  notes?: string;
 };
 
 export type CapturePreferences = {
@@ -11,6 +18,7 @@ export type CapturePreferences = {
   browserContextEnabled: boolean;
   autoDeleteDays: number | null;
   appearance: "dark" | "light" | "system";
+  onboardingCompleted: boolean;
 };
 
 export type Clip = {

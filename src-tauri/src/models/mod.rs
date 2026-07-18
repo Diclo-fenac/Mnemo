@@ -7,6 +7,7 @@ use serde::Serialize;
 #[serde(rename_all = "camelCase")]
 pub struct BootstrapState {
     pub database_ready: bool,
+    pub onboarding_completed: bool,
     pub embedding_status: String,
     pub stage: String,
 }

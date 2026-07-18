@@ -1,5 +1,8 @@
 use std::path::PathBuf;
-use std::sync::{Arc, Mutex};
+use std::sync::{
+    atomic::{AtomicBool, Ordering},
+    Arc, Mutex,
+};
 use std::thread;
 use std::time::Duration;
 
@@ -16,7 +19,15 @@ pub fn start_embedder(
     embedder_state: Arc<Mutex<Option<TextEmbedding>>>,
     embedding_status: Arc<Mutex<EmbeddingStatus>>,
     model_cache_dir: PathBuf,
-) {
+    model_start_requested: Arc<AtomicBool>,
+) -> bool {
+    if model_start_requested
+        .compare_exchange(false, true, Ordering::AcqRel, Ordering::Acquire)
+        .is_err()
+    {
+        return false;
+    }
+
     thread::spawn(move || {
         log::info!("[embedder] Loading embedding model...");
         if let Ok(mut status) = embedding_status.lock() {
@@ -43,6 +54,7 @@ pub fn start_embedder(
                 if let Ok(mut status) = embedding_status.lock() {
                     *status = EmbeddingStatus::Unavailable;
                 }
+                model_start_requested.store(false, Ordering::Release);
                 return;
             }
         };
@@ -182,4 +194,6 @@ pub fn start_embedder(
             }
         }
     });
+
+    true
 }

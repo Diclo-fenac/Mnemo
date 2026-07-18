@@ -30,6 +30,14 @@ pub fn get_bootstrap_state(state: State<'_, AppState>) -> Result<BootstrapState,
             |row| row.get(0),
         )
         .unwrap_or_else(|_| "clippy".to_string());
+    let onboarding_completed = connection
+        .query_row(
+            "SELECT onboarding_completed FROM settings WHERE id = 1",
+            [],
+            |row| row.get::<_, i32>(0),
+        )
+        .map(|value| value != 0)
+        .unwrap_or(false);
     drop(connection);
 
     let embedding_status = match *state
@@ -45,6 +53,7 @@ pub fn get_bootstrap_state(state: State<'_, AppState>) -> Result<BootstrapState,
 
     Ok(BootstrapState {
         database_ready: true,
+        onboarding_completed,
         embedding_status: embedding_status.to_string(),
         stage,
     })

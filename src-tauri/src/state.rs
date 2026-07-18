@@ -1,7 +1,10 @@
 use fastembed::{TextEmbedding, TextRerank};
 use rusqlite::Connection;
 use std::path::PathBuf;
-use std::sync::{atomic::AtomicBool, Arc, Mutex};
+use std::sync::{
+    atomic::{AtomicBool, Ordering},
+    Arc, Mutex,
+};
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum EmbeddingStatus {
@@ -21,6 +24,7 @@ pub struct BrowserContext {
 pub struct AppState {
     pub db: Arc<Mutex<Connection>>,
     pub embedding_status: Arc<Mutex<EmbeddingStatus>>,
+    pub model_start_requested: Arc<AtomicBool>,
     pub embedder: Arc<Mutex<Option<TextEmbedding>>>,
     pub reranker: Arc<Mutex<Option<TextRerank>>>,
     pub browser_context: Arc<Mutex<Option<BrowserContext>>>,
@@ -39,6 +43,7 @@ impl AppState {
         Self {
             db,
             embedding_status: Arc::new(Mutex::new(EmbeddingStatus::Deferred)),
+            model_start_requested: Arc::new(AtomicBool::new(false)),
             embedder: Arc::new(Mutex::new(None)),
             reranker: Arc::new(Mutex::new(None)),
             browser_context: Arc::new(Mutex::new(None)),
@@ -46,5 +51,9 @@ impl AppState {
             browser_context_enabled: Arc::new(AtomicBool::new(browser_context_enabled)),
             model_cache_dir,
         }
+    }
+
+    pub fn reset_model_start_request(&self) {
+        self.model_start_requested.store(false, Ordering::Release);
     }
 }

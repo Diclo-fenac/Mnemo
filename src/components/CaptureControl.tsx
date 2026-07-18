@@ -22,7 +22,7 @@ export function CaptureControl() {
     return () => { void unlisten.then((fn) => fn()); };
   }, [preferences, setPreferences]);
 
-  const enabled = preferences?.captureEnabled ?? true;
+  const enabled = preferences?.captureEnabled ?? false;
   async function toggle() {
     if (!preferences || saving) return;
     const next = { ...preferences, captureEnabled: !preferences.captureEnabled };
