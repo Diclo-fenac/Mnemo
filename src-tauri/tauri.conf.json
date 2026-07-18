@@ -43,6 +43,15 @@
     "active": true,
     "targets": "all",
     "category": "Productivity",
-    "shortDescription": "Your clipboard, with memory."
+    "shortDescription": "Your clipboard, with memory.",
+    "createUpdaterArtifacts": true
+  },
+  "plugins": {
+    "updater": {
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IENCOUM3QTU5NjMzOTBEN0EKUldSNkRUbGpXWHFjeXpJVjFkTTYxMmJEREo5NHprR3R3c25MSVZVUjlscEQ4QnFhNzBmSTlMK3YK",
+      "endpoints": [
+        "https://github.com/Diclo-fenac/Mnemo/releases/latest/download/latest.json"
+      ]
+    }
   }
 }

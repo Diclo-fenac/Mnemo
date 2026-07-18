@@ -23,8 +23,10 @@ export function Settings() {
   const modelMenuRef = useRef<HTMLDivElement>(null);
   const resetClips = useClipsStore((state) => state.reset);
   const setBootstrap = useAppStore((state) => state.setBootstrap);
+  const bootstrap = useAppStore((state) => state.bootstrap);
   const preferences = useAppStore((state) => state.capturePreferences);
   const setPreferences = useAppStore((state) => state.setCapturePreferences);
+  const updateState = useAppStore((state) => state.updateState);
 
   useEffect(() => {
     isEnabled().then(setAutostart).catch(() => setNotice("Unable to read launch-on-startup status."));
@@ -99,6 +101,16 @@ export function Settings() {
 
   const activeModel = models.find((model) => model.id === selectedModel);
 
+  async function retryModel() {
+    try {
+      await invoke("retry_embedding_model");
+      setBootstrap(bootstrap ? { ...bootstrap, embeddingStatus: "loading" } : null);
+      setNotice("Model preparation restarted. Keyword search remains available.");
+    } catch (error) {
+      setNotice(error instanceof Error ? error.message : "Unable to retry model preparation.");
+    }
+  }
+
   return (
     <section className="page settings-page">
       <header className="settings-header">
@@ -113,11 +125,12 @@ export function Settings() {
         <section className="settings-panel">
           <div className="settings-panel-heading"><ShieldCheck size={18} /><div><h2>Privacy & capture</h2><p>Capture is always local and can be paused at any time.</p></div></div>
           <SettingRow title="Clipboard capture" description={preferences?.captureEnabled ? "Mnemo is watching your clipboard locally." : "Capture is paused. Existing memories remain searchable."}>
-            <Toggle checked={preferences?.captureEnabled ?? true} disabled={!preferences} onChange={(captureEnabled) => { void updatePreferences({ captureEnabled }); }} />
+            <Toggle checked={preferences?.captureEnabled ?? false} disabled={!preferences} onChange={(captureEnabled) => { void updatePreferences({ captureEnabled }); }} />
           </SettingRow>
-          <SettingRow title="Browser context" description="Attach page titles and URLs only when the Mnemo Context Bridge extension sends them. Load the extension folder in your browser to enable reliable website sources.">
+          <SettingRow title="Browser context" description="Attach verified page titles and URLs only when the optional Mnemo Context Bridge extension sends them.">
             <Toggle checked={preferences?.browserContextEnabled ?? false} disabled={!preferences} onChange={(browserContextEnabled) => { void updatePreferences({ browserContextEnabled }); }} />
           </SettingRow>
+          <div className="browser-context-guide"><strong>Optional browser setup</strong><p>Chrome beta users install the unlisted Web Store package. Firefox beta users load the temporary `.xpi` package from the latest GitHub Release; Firefox removes temporary extensions after restart.</p><a href="https://github.com/Diclo-fenac/Mnemo/releases/latest" target="_blank" rel="noreferrer">Open beta release assets</a></div>
           <SettingRow title="Capture shortcut" description="Toggle capture without opening Mnemo."><kbd className="shortcut-key">Ctrl/Cmd + Shift + M</kbd></SettingRow>
         </section>
 
@@ -137,12 +150,13 @@ export function Settings() {
             {modelMenuOpen && <div className="model-select-menu" role="listbox">{models.map((model) => <button key={model.id} type="button" role="option" aria-selected={model.id === selectedModel} onClick={() => { void switchModel(model.id); }}><span><strong>{model.displayName}</strong><small>{model.description}</small></span><em>{model.dimensions}d · {model.sizeMb}MB</em></button>)}</div>}
           </div>
           {switching && <p className="settings-progress">Preparing model and re-embedding memories…</p>}
+          {bootstrap?.embeddingStatus === "unavailable" && <div className="model-retry"><p className="settings-progress">The local model is unavailable. Keyword search still works.</p><button type="button" className="quiet-button" onClick={() => { void retryModel(); }}>Retry model preparation</button></div>}
         </section>
 
         <section className="settings-panel">
           <div className="settings-panel-heading"><Power size={18} /><div><h2>System & retention</h2><p>Local storage rules that keep the memory lightweight.</p></div></div>
           <SettingRow title="Launch on startup" description="Start Mnemo in the background when you log in."><Toggle checked={autostart} onChange={() => { void toggleAutostart(); }} /></SettingRow>
-          <SettingRow title="Auto-delete" description="Pinned clips stay protected from retention cleanup."><label className="retention-input"><input value={preferences?.autoDeleteDays ?? ""} type="number" min="1" max="3650" disabled={!preferences} onChange={(event) => { const value = event.target.value; void updatePreferences({ autoDeleteDays: value ? Number(value) : null }); }} /><span>days</span></label></SettingRow>
+          <SettingRow title="Auto-delete" description="Never is the default. Set a number of days only if you want Mnemo to clean up unpinned clips automatically."><label className="retention-input"><input value={preferences?.autoDeleteDays ?? ""} type="number" min="1" max="3650" disabled={!preferences} placeholder="Never" onChange={(event) => { const value = event.target.value; void updatePreferences({ autoDeleteDays: value ? Number(value) : null }); }} /><span>days</span></label></SettingRow>
         </section>
 
         <section className="settings-panel local-data-panel">
@@ -153,6 +167,11 @@ export function Settings() {
         <section className="settings-panel settings-advanced">
           <div className="settings-panel-heading"><Eye size={18} /><div><h2>Advanced diagnostics</h2><p>Review local search quality, embedding coverage, and source distribution.</p></div></div>
           <Link className="quiet-button" to="/quality">Open diagnostics</Link>
+        </section>
+
+        <section className="settings-panel settings-advanced">
+          <div className="settings-panel-heading"><Power size={18} /><div><h2>Mnemo updates</h2><p>Signed update checks run quietly against the Mnemo GitHub Release feed.</p></div></div>
+          <p className="settings-progress">{updateState.status === "checking" ? "Checking for updates…" : updateState.status === "available" ? `Version ${updateState.version} is available. Restart Mnemo after installing the release manually.` : updateState.status === "current" ? "You are running the latest available beta." : updateState.status === "error" ? "Update check unavailable. Mnemo remains fully usable offline." : "Update checks will run after startup."}</p>
         </section>
       </div>
     </section>
