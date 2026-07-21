@@ -164,8 +164,8 @@ export function Settings() {
       {notice && <div className="error-banner" role="status">{notice}<button onClick={() => setNotice(null)}>Dismiss</button></div>}
 
       <div className="settings-stack">
-        <section className="settings-panel">
-          <div className="settings-panel-heading"><Sparkles size={18} /><div><h2>AI answer provider</h2><p>Optional grounded answers use only your top five local search matches.</p></div></div>
+        <section className={`settings-panel ai-provider-panel ai-provider-${aiSettings?.provider ?? "none"}`}>
+          <div className="settings-panel-heading"><span className="ai-provider-icon"><Sparkles size={18} /></span><div><div className="ai-provider-heading"><h2>AI answer provider</h2>{aiSettings && <span className="ai-provider-pill">{providerLabel(aiSettings.provider)}</span>}</div><p>Optional grounded answers use only your top five local search matches.</p></div></div>
           {aiSettings && <>
             <div className="ai-provider-grid"><label>Provider<select value={aiSettings.provider} onChange={(event) => { const provider = event.target.value as AiSettings["provider"]; const defaults = { none: "", ollama: "llama3.2:3b", openai: "gpt-4o-mini", gemini: "gemini-2.0-flash" }; setAiSettings({ ...aiSettings, provider, model: defaults[provider] }); }}><option value="none">Local only</option><option value="ollama">Ollama</option><option value="openai">OpenAI</option><option value="gemini">Gemini</option></select></label><label>Model<input value={aiSettings.model} onChange={(event) => setAiSettings({ ...aiSettings, model: event.target.value })} /></label></div>
             {aiSettings.provider === "ollama" && <label className="ai-field">Ollama URL<input value={aiSettings.ollamaUrl} onChange={(event) => setAiSettings({ ...aiSettings, ollamaUrl: event.target.value })} /></label>}
@@ -184,7 +184,7 @@ export function Settings() {
             <Toggle checked={preferences?.browserContextEnabled ?? false} disabled={!preferences} onChange={(browserContextEnabled) => { void updatePreferences({ browserContextEnabled }); }} />
           </SettingRow>
           <div className="browser-context-guide"><strong>Optional browser setup</strong><p>Chrome beta users install the unlisted Web Store package. Firefox beta users load the temporary `.xpi` package from the latest GitHub Release; Firefox removes temporary extensions after restart.</p><a href="https://github.com/Diclo-fenac/Mnemo/releases/latest" target="_blank" rel="noreferrer">Open beta release assets</a></div>
-          <SettingRow title="Capture shortcut" description="Toggle capture without opening Mnemo."><kbd className="shortcut-key">Ctrl/Cmd + Shift + M</kbd></SettingRow>
+          <SettingRow title="Capture shortcut" description="Toggle capture without opening Mnemo."><kbd className="shortcut-key">Ctrl+Shift+M</kbd></SettingRow>
         </section>
 
         <section className="settings-panel">
@@ -210,7 +210,7 @@ export function Settings() {
           {modelStatus && modelStatus.cachedModels.length > 0 && <p className="settings-progress">Detected locally: {modelStatus.cachedModels.join(", ")}. Mnemo uses the active model above and keeps other cached models available for switching.</p>}
           {modelStatus?.error && <p className="model-error" role="alert">Model diagnostic: {modelStatus.error}</p>}
           {switching && <p className="settings-progress">Preparing model and re-embedding memories…</p>}
-          {bootstrap?.embeddingStatus === "unavailable" && <div className="model-retry"><p className="settings-progress">The local model is unavailable. Keyword search still works.</p><button type="button" className="quiet-button" onClick={() => { void retryModel(); }}>Retry model preparation</button></div>}
+          {(bootstrap?.embeddingStatus === "unavailable" || bootstrap?.embeddingStatus === "deferred") && <div className="model-retry"><p className="settings-progress">{bootstrap.embeddingStatus === "deferred" ? "The local model is installed but has not started. Starting it will not change your capture settings." : "The local model is unavailable. Keyword search still works."}</p><button type="button" className="quiet-button" onClick={() => { void retryModel(); }}>{bootstrap.embeddingStatus === "deferred" ? "Start local model" : "Retry model preparation"}</button></div>}
         </section>
 
         <section className="settings-panel">
@@ -236,6 +236,10 @@ export function Settings() {
       </div>
     </section>
   );
+}
+
+function providerLabel(provider: AiSettings["provider"]) {
+  return provider === "none" ? "Local only" : provider === "ollama" ? "Ollama" : provider === "openai" ? "OpenAI" : "Gemini";
 }
 
 function SettingRow({ title, description, children }: { title: string; description: string; children: ReactNode }) {

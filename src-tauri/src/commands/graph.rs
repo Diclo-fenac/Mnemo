@@ -95,13 +95,23 @@ pub fn get_graph_data(state: State<'_, AppState>, limit: Option<i64>) -> Result<
     let pending_count: i64 = conn
         .query_row(
             "SELECT COUNT(*) FROM clips
-             WHERE is_duplicate = 0 AND embedding_status IN ('pending', 'failed')",
+             WHERE is_duplicate = 0 AND embedding_status = 'pending'",
+            [],
+            |row| row.get(0),
+        )
+        .unwrap_or(0);
+    let failed_count: i64 = conn
+        .query_row(
+            "SELECT COUNT(*) FROM clips
+             WHERE is_duplicate = 0 AND embedding_status = 'failed'",
             [],
             |row| row.get(0),
         )
         .unwrap_or(0);
     let state = if links.is_empty() && pending_count > 0 {
         "building"
+    } else if links.is_empty() && failed_count > 0 {
+        "unavailable"
     } else if links.is_empty() {
         "edge_free"
     } else {

@@ -9,6 +9,7 @@ type BrandMarkProps = {
 export function BrandMark({ size = 28, variant = "full", className }: BrandMarkProps) {
   const wordmark = variant === "wordmark";
   const width = wordmark ? size * 5.2 : size;
+  const logoWidth = wordmark ? size * 6.1 : size * 2.2;
   return (
     <span
       className={`brand-mark brand-mark-${variant} ${className ?? ""}`.trim()}
@@ -18,7 +19,7 @@ export function BrandMark({ size = 28, variant = "full", className }: BrandMarkP
       <img
         className="brand-mark-logo"
         src={mnemoLogo}
-        width={wordmark ? width : size * 2.2}
+        width={logoWidth}
         height={wordmark ? size * 2.2 : size * 1.1}
         alt="Mnemo"
       />

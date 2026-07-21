@@ -21,7 +21,7 @@ export function Timeline() {
   useEffect(() => {
     setSessionsLoading(true);
     setSessionsError(null);
-    invoke<SessionSummary[]>("list_sessions", { limit: 3 })
+    invoke<SessionSummary[]>("list_sessions", { limit: 500 })
       .then(setSessions)
       .catch((reason) => setSessionsError(reason instanceof Error ? reason.message : "Unable to load sessions."))
       .finally(() => setSessionsLoading(false));
@@ -92,7 +92,7 @@ export function Timeline() {
       <h1 className="page-title">Timeline</h1>
       {(clipsError || sessionsError) && <div className="error-banner" role="alert">{clipsError || sessionsError}<button onClick={() => { void fetchClips(); }}>Retry</button></div>}
       <div className="timeline-heading">
-        <p className="page-copy">{clips.length} clip{clips.length !== 1 ? "s" : ""} remembered. Showing the latest {sessions.length} research session{sessions.length !== 1 ? "s" : ""}.</p>
+        <p className="page-copy">{clips.length} clip{clips.length !== 1 ? "s" : ""} remembered across {sessions.length} research session{sessions.length !== 1 ? "s" : ""}. Each session shows a three-clip preview.</p>
         <div className="timeline-actions">
           <button className="quiet-button" onClick={() => { void expandAll(); }}><ChevronsUpDown size={15} /> Expand all</button>
           <button className="quiet-button" onClick={() => setExpanded(new Set())}><ChevronsDownUp size={15} /> Collapse all</button>
@@ -102,6 +102,7 @@ export function Timeline() {
         {sessions.map((session) => {
           const isExpanded = expanded.has(session.id);
           const clipsForSession = sessionClips[session.id] ?? [];
+          const previewClips = clipsForSession.slice(0, 3);
           const accent = topicColor(session.keyTopics[0] || session.label);
           return <article className="session-group" style={{ "--session-accent": accent } as React.CSSProperties} key={session.id}>
             <button className="session-toggle" aria-expanded={isExpanded} onClick={() => { void toggle(session.id); }}>
@@ -111,7 +112,7 @@ export function Timeline() {
             </button>
             <div className="session-summary"><p>{session.summary}</p><div className="session-summary-actions"><div>{[...new Set(session.keyTopics.filter((item) => item && item.toLowerCase() !== "unknown"))].slice(0, 4).map((item) => <span className="tag" key={item}>{item}</span>)}</div><Link className="session-link" to={`/session/${session.id}`} aria-label={`Open ${session.label} reconstruction`}>Open <ExternalLink size={13} /></Link></div></div>
             {isExpanded && <div className="session-expanded">
-              {clipsForSession.length ? <div className="clips-list">{clipsForSession.map((clip) => <ClipCard key={clip.id} clip={clip} isNew={clip.id === latestClipId} />)}</div> : <p className="muted-copy">Loading session clips...</p>}
+              {clipsForSession.length ? <><div className="clips-list">{previewClips.map((clip) => <ClipCard key={clip.id} clip={clip} isNew={clip.id === latestClipId} />)}</div>{clipsForSession.length > 3 && <p className="session-preview-note">Showing 3 of {clipsForSession.length} clips. <Link to={`/session/${session.id}`}>Open the full reconstruction <ExternalLink size={13} /></Link></p>}</> : <p className="muted-copy">Loading session clips...</p>}
             </div>}
           </article>;
         })}

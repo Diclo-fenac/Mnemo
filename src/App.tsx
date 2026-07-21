@@ -13,6 +13,7 @@ const Memory = lazy(() => import("./pages/Memory").then((module) => ({ default: 
 const Search = lazy(() => import("./pages/Search").then((module) => ({ default: module.Search })));
 const SessionReconstruction = lazy(() => import("./pages/SessionReconstruction").then((module) => ({ default: module.SessionReconstruction })));
 const MemoryGraph = lazy(() => import("./pages/MemoryGraph").then((module) => ({ default: module.MemoryGraph })));
+const Chat = lazy(() => import("./pages/Chat").then((module) => ({ default: module.Chat })));
 const ClipDetail = lazy(() => import("./pages/ClipDetail").then((module) => ({ default: module.ClipDetail })));
 const Settings = lazy(() => import("./pages/Settings").then((module) => ({ default: module.Settings })));
 const Quality = lazy(() => import("./pages/Quality").then((module) => ({ default: module.Quality })));
@@ -81,6 +82,7 @@ export default function App() {
             <Route path="/search" element={<Search />} />
             <Route path="/session/:id" element={<SessionReconstruction />} />
             <Route path="/graph" element={<MemoryGraph />} />
+            <Route path="/chat" element={<Chat />} />
             <Route path="/clip/:id" element={<ClipDetail />} />
             <Route path="/settings" element={<Settings />} />
             <Route path="/quality" element={<Quality />} />

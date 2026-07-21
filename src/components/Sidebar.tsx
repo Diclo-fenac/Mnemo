@@ -1,5 +1,5 @@
 import { type FormEvent, useState } from "react";
-import { Clock3, Network, Search, Settings, Sparkles } from "lucide-react";
+import { Bot, Clock3, Network, Search, Settings, Sparkles } from "lucide-react";
 import { NavLink, useNavigate } from "react-router-dom";
 import { BrandMark } from "./BrandMark";
 import { CaptureControl } from "./CaptureControl";
@@ -8,6 +8,7 @@ const links = [
   { to: "/", label: "Memory", icon: Sparkles },
   { to: "/timeline", label: "Timeline", icon: Clock3 },
   { to: "/graph", label: "Memory graph", icon: Network },
+  { to: "/chat", label: "Chat with Mnemo", icon: Bot },
   { to: "/settings", label: "Settings", icon: Settings },
 ];
 
