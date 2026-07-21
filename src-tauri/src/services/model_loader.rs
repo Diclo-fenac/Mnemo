@@ -59,6 +59,30 @@ pub fn load_text(model_id: &str, cache_dir: &Path) -> Result<TextEmbedding> {
     .context("Initialize local embedding model")
 }
 
+pub fn is_cached(model_id: &str, cache_dir: &Path) -> bool {
+    let Some(artifacts) = model_registry::artifacts(model_id) else {
+        return false;
+    };
+    let root = cache_dir.join("artifacts").join(model_id);
+    [
+        artifacts.model_file,
+        "tokenizer.json",
+        "config.json",
+        "special_tokens_map.json",
+        "tokenizer_config.json",
+    ]
+    .iter()
+    .all(|remote_path| {
+        let target = root.join(remote_path);
+        (target.is_file()
+            && target
+                .metadata()
+                .map(|meta| meta.len() > 0)
+                .unwrap_or(false))
+            || legacy_cached_file(cache_dir, artifacts.repository, remote_path).is_some()
+    })
+}
+
 fn ensure_file(
     cache_dir: &Path,
     repository: &str,

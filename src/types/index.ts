@@ -21,6 +21,32 @@ export type CapturePreferences = {
   onboardingCompleted: boolean;
 };
 
+export type AiSettings = {
+  provider: "none" | "ollama" | "openai" | "gemini";
+  model: string;
+  ollamaUrl: string;
+  hasApiKey: boolean;
+  cloudConsent: boolean;
+};
+
+export type EmbeddingModelStatus = {
+  modelId: string;
+  cached: boolean;
+  runtimeStatus: "deferred" | "loading" | "ready" | "unavailable";
+  error: string | null;
+  cachedModels: string[];
+  pendingModel: string | null;
+  pendingState: string | null;
+};
+
+export type GroundedAnswer = {
+  answer: string;
+  citations: string[];
+  confidence: "high" | "medium" | "low";
+  source: string;
+  fallbackReason: string | null;
+};
+
 export type Clip = {
   id: string;
   content: string;

@@ -21,7 +21,7 @@ export function Timeline() {
   useEffect(() => {
     setSessionsLoading(true);
     setSessionsError(null);
-    invoke<SessionSummary[]>("list_sessions", { limit: 100 })
+    invoke<SessionSummary[]>("list_sessions", { limit: 3 })
       .then(setSessions)
       .catch((reason) => setSessionsError(reason instanceof Error ? reason.message : "Unable to load sessions."))
       .finally(() => setSessionsLoading(false));
@@ -92,7 +92,7 @@ export function Timeline() {
       <h1 className="page-title">Timeline</h1>
       {(clipsError || sessionsError) && <div className="error-banner" role="alert">{clipsError || sessionsError}<button onClick={() => { void fetchClips(); }}>Retry</button></div>}
       <div className="timeline-heading">
-        <p className="page-copy">{clips.length} clip{clips.length !== 1 ? "s" : ""} remembered across {sessions.length} research session{sessions.length !== 1 ? "s" : ""}.</p>
+        <p className="page-copy">{clips.length} clip{clips.length !== 1 ? "s" : ""} remembered. Showing the latest {sessions.length} research session{sessions.length !== 1 ? "s" : ""}.</p>
         <div className="timeline-actions">
           <button className="quiet-button" onClick={() => { void expandAll(); }}><ChevronsUpDown size={15} /> Expand all</button>
           <button className="quiet-button" onClick={() => setExpanded(new Set())}><ChevronsDownUp size={15} /> Collapse all</button>
@@ -109,10 +109,9 @@ export function Timeline() {
               <span className="session-main"><strong>{session.label}</strong><span>{formatSessionRange(session.startedAt, session.endedAt)}</span></span>
               <span className="session-stats"><Clock3 size={14} /> {formatDuration(session.durationMs)} <span>{session.clipCount} clips</span></span>
             </button>
-            <div className="session-summary"><p>{session.summary}</p><div>{[...session.keyTopics, ...session.sourceApps].slice(0, 4).map((item) => <span className="tag" key={item}>{item}</span>)}</div></div>
+            <div className="session-summary"><p>{session.summary}</p><div className="session-summary-actions"><div>{[...new Set(session.keyTopics.filter((item) => item && item.toLowerCase() !== "unknown"))].slice(0, 4).map((item) => <span className="tag" key={item}>{item}</span>)}</div><Link className="session-link" to={`/session/${session.id}`} aria-label={`Open ${session.label} reconstruction`}>Open <ExternalLink size={13} /></Link></div></div>
             {isExpanded && <div className="session-expanded">
               {clipsForSession.length ? <div className="clips-list">{clipsForSession.map((clip) => <ClipCard key={clip.id} clip={clip} isNew={clip.id === latestClipId} />)}</div> : <p className="muted-copy">Loading session clips...</p>}
-              <Link className="session-link" to={`/session/${session.id}`}>View reconstruction <ExternalLink size={14} /></Link>
             </div>}
           </article>;
         })}

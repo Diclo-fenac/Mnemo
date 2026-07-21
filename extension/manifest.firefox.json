@@ -5,7 +5,7 @@
   "description": "Sends opt-in page context to the local Mnemo desktop app when you copy.",
   "permissions": ["activeTab"],
   "host_permissions": ["http://127.0.0.1:17531/*", "<all_urls>"],
-  "background": { "service_worker": "background.js", "type": "module" },
+  "background": { "scripts": ["background.js"], "type": "module" },
   "content_scripts": [{ "matches": ["<all_urls>"], "js": ["content.js"], "run_at": "document_start" }],
   "browser_specific_settings": { "gecko": { "id": "mnemo-context@mnemo.app", "strict_min_version": "121.0" } }
 }

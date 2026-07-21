@@ -24,12 +24,14 @@ pub struct BrowserContext {
 pub struct AppState {
     pub db: Arc<Mutex<Connection>>,
     pub embedding_status: Arc<Mutex<EmbeddingStatus>>,
+    pub embedding_error: Arc<Mutex<Option<String>>>,
     pub model_start_requested: Arc<AtomicBool>,
     pub embedder: Arc<Mutex<Option<TextEmbedding>>>,
     pub reranker: Arc<Mutex<Option<TextRerank>>>,
     pub browser_context: Arc<Mutex<Option<BrowserContext>>>,
     pub capture_enabled: Arc<AtomicBool>,
     pub browser_context_enabled: Arc<AtomicBool>,
+    pub ai_request_active: Arc<AtomicBool>,
     pub model_cache_dir: PathBuf,
 }
 
@@ -43,12 +45,14 @@ impl AppState {
         Self {
             db,
             embedding_status: Arc::new(Mutex::new(EmbeddingStatus::Deferred)),
+            embedding_error: Arc::new(Mutex::new(None)),
             model_start_requested: Arc::new(AtomicBool::new(false)),
             embedder: Arc::new(Mutex::new(None)),
             reranker: Arc::new(Mutex::new(None)),
             browser_context: Arc::new(Mutex::new(None)),
             capture_enabled: Arc::new(AtomicBool::new(capture_enabled)),
             browser_context_enabled: Arc::new(AtomicBool::new(browser_context_enabled)),
+            ai_request_active: Arc::new(AtomicBool::new(false)),
             model_cache_dir,
         }
     }

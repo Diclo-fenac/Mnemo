@@ -18,6 +18,21 @@ pub fn healthcheck(state: State<'_, AppState>) -> Result<bool, String> {
 }
 
 #[tauri::command]
+pub fn test_context_bridge(state: State<'_, AppState>) -> Result<bool, String> {
+    if !crate::services::capture_state::is_enabled(&state.browser_context_enabled) {
+        return Err("Enable Browser Context first".to_string());
+    }
+    ureq::AgentBuilder::new()
+        .timeout_connect(std::time::Duration::from_millis(500))
+        .timeout_read(std::time::Duration::from_millis(500))
+        .build()
+        .get("http://127.0.0.1:17531/health")
+        .call()
+        .map(|response| response.status() == 200)
+        .map_err(|error| format!("Context bridge is unavailable: {error}"))
+}
+
+#[tauri::command]
 pub fn get_bootstrap_state(state: State<'_, AppState>) -> Result<BootstrapState, String> {
     let connection = state
         .db

@@ -35,8 +35,33 @@ describe("Mnemo Context Bridge", () => {
     expect(response).toEqual({ ok: true });
     expect(fetchMock).toHaveBeenCalledWith(
       "http://127.0.0.1:17531/context",
-      expect.objectContaining({ method: "POST" }),
+      expect.objectContaining({
+        method: "POST",
+        body: JSON.stringify({
+          url: "https://example.com/docs",
+          title: "Example docs",
+          favicon_url: "https://example.com/favicon.ico",
+          selected_text: "clipboard text",
+        }),
+      }),
     );
+  });
+
+  it("reports a failed local request without breaking the copy flow", async () => {
+    let listener: ((message: unknown) => Promise<{ ok: boolean }> | undefined) | undefined;
+    vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new Error("Mnemo is closed")));
+    vi.stubGlobal("browser", {
+      runtime: {
+        onMessage: {
+          addListener(next: typeof listener) {
+            listener = next;
+          },
+        },
+      },
+    });
+
+    await import(`${extensionPath("background.js")}?firefox=${Date.now()}`);
+    await expect(listener?.({ type: "mnemo-copy-context" })).resolves.toEqual({ ok: false });
   });
 
   it("sends the active page and selection only when a copy event occurs", async () => {

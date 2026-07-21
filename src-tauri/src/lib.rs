@@ -111,6 +111,7 @@ pub fn run() {
                     Arc::clone(&db_arc),
                     app_state.embedder.clone(),
                     app_state.embedding_status.clone(),
+                    app_state.embedding_error.clone(),
                     app_state.model_cache_dir.clone(),
                     app_state.model_start_requested.clone(),
                 );
@@ -118,9 +119,13 @@ pub fn run() {
             services::reranker::start();
 
             let popup_shortcut = "CommandOrControl+Shift+V".parse::<Shortcut>().unwrap();
-            let _ = app.global_shortcut().register(popup_shortcut);
+            if let Err(error) = app.global_shortcut().register(popup_shortcut) {
+                log::warn!("Could not register Cmd/Ctrl+Shift+V: {error}");
+            }
             let capture_shortcut = "CommandOrControl+Shift+M".parse::<Shortcut>().unwrap();
-            let _ = app.global_shortcut().register(capture_shortcut);
+            if let Err(error) = app.global_shortcut().register(capture_shortcut) {
+                log::warn!("Could not register Cmd/Ctrl+Shift+M: {error}");
+            }
 
             let _tray = tauri::tray::TrayIconBuilder::new()
                 .tooltip("Mnemo")
@@ -145,8 +150,13 @@ pub fn run() {
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
+            commands::ai::get_ai_settings,
+            commands::ai::update_ai_settings,
+            commands::ai::test_ai_provider,
+            commands::ai::generate_grounded_answer,
             commands::system::get_bootstrap_state,
             commands::system::healthcheck,
+            commands::system::test_context_bridge,
             commands::clips::list_clips,
             commands::clips::get_clip,
             commands::clips::delete_clip,
@@ -161,6 +171,7 @@ pub fn run() {
             commands::graph::get_graph_data,
             commands::models::get_supported_embedding_models,
             commands::models::get_active_embedding_model,
+            commands::models::get_embedding_model_status,
             commands::models::switch_embedding_model,
             commands::quality::get_quality_metrics,
             commands::quality::log_search_feedback,
@@ -168,6 +179,7 @@ pub fn run() {
             commands::settings::clear_database,
             commands::settings::get_capture_preferences,
             commands::settings::update_capture_preferences,
+            commands::settings::toggle_capture,
             commands::settings::complete_onboarding,
             commands::settings::retry_embedding_model,
         ])

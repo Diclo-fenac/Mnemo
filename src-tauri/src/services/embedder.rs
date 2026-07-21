@@ -18,6 +18,7 @@ pub fn start_embedder(
     db: Arc<Mutex<Connection>>,
     embedder_state: Arc<Mutex<Option<TextEmbedding>>>,
     embedding_status: Arc<Mutex<EmbeddingStatus>>,
+    embedding_error: Arc<Mutex<Option<String>>>,
     model_cache_dir: PathBuf,
     model_start_requested: Arc<AtomicBool>,
 ) -> bool {
@@ -32,6 +33,9 @@ pub fn start_embedder(
         log::info!("[embedder] Loading embedding model...");
         if let Ok(mut status) = embedding_status.lock() {
             *status = EmbeddingStatus::Loading;
+        }
+        if let Ok(mut error) = embedding_error.lock() {
+            *error = None;
         }
 
         let active_model = db
@@ -54,6 +58,9 @@ pub fn start_embedder(
                 if let Ok(mut status) = embedding_status.lock() {
                     *status = EmbeddingStatus::Unavailable;
                 }
+                if let Ok(mut error) = embedding_error.lock() {
+                    *error = Some(e.to_string());
+                }
                 model_start_requested.store(false, Ordering::Release);
                 return;
             }
@@ -74,14 +81,23 @@ pub fn start_embedder(
 
             let un_embedded_clips: Vec<(String, String)> = {
                 let conn = db.lock().unwrap();
-                let mut stmt = match conn.prepare(
-                    "SELECT c.id, c.content FROM clips c 
-                     LEFT JOIN clips_embeddings ce ON c.id = ce.clip_id
-                     WHERE ce.clip_id IS NULL
-                       AND c.is_duplicate = 0
+                let table = conn.query_row(
+                    "SELECT table_name FROM embedding_registry WHERE slot = 'active'",
+                    [],
+                    |row| row.get::<_, String>(0),
+                ).unwrap_or_else(|_| "clips_embeddings".to_string());
+                if !table.chars().all(|c| c.is_ascii_alphanumeric() || c == '_') {
+                    log::error!("[embedder] Invalid active embedding table");
+                    continue;
+                }
+                let query = format!(
+                    "SELECT c.id, c.content FROM clips c
+                     WHERE c.is_duplicate = 0
                        AND c.embedding_status IN ('pending', 'failed')
-                     LIMIT 10",
-                ) {
+                       AND NOT EXISTS (SELECT 1 FROM {table} v WHERE v.clip_id = c.id)
+                     LIMIT 10"
+                );
+                let mut stmt = match conn.prepare(&query) {
                     Ok(s) => s,
                     Err(e) => {
                         log::error!("[embedder] DB prepare error: {e}");
@@ -160,8 +176,19 @@ pub fn start_embedder(
                             .iter()
                             .flat_map(|value| value.to_le_bytes())
                             .collect();
+                        let table = conn.query_row(
+                            "SELECT table_name FROM embedding_registry WHERE slot = 'active'",
+                            [],
+                            |row| row.get::<_, String>(0),
+                        ).unwrap_or_else(|_| "clips_embeddings".to_string());
+                        if !table.chars().all(|c| c.is_ascii_alphanumeric() || c == '_') {
+                            continue;
+                        }
+                        let insert = format!(
+                            "INSERT OR REPLACE INTO {table} (clip_id, embedding) VALUES (?1, ?2)"
+                        );
                         let res = conn.execute(
-                            "INSERT OR REPLACE INTO clips_embeddings (clip_id, embedding) VALUES (?1, ?2)",
+                            &insert,
                             rusqlite::params![clip_id, bytes],
                         );
                         if res.is_ok() {

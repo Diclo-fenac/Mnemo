@@ -22,6 +22,20 @@ function verifySource() {
   }
   if (chrome.manifest_version !== 3 || firefox.manifest_version !== 3) throw new Error("Both manifests must use Manifest V3");
   if (chrome.version !== firefox.version) throw new Error("Chrome and Firefox extension versions must match");
+  for (const manifest of [chrome, firefox]) {
+    if (!manifest.host_permissions?.includes("http://127.0.0.1:17531/*")) {
+      throw new Error("Both manifests must allow only the documented loopback endpoint");
+    }
+    if (!manifest.content_scripts?.some((script) => script.js?.includes("content.js"))) {
+      throw new Error("Both manifests must install the context bridge content script");
+    }
+  }
+  if (chrome.background?.service_worker !== "background.js") {
+    throw new Error("Chrome manifest must use the background service worker");
+  }
+  if (!firefox.background?.scripts?.includes("background.js") || firefox.background?.service_worker) {
+    throw new Error("Firefox manifest must use background.scripts, not service_worker");
+  }
   return chrome.version;
 }
 

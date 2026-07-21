@@ -8,6 +8,18 @@ use tauri::State;
 use crate::services::model_registry;
 use crate::state::AppState;
 
+#[derive(Debug, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct EmbeddingModelStatus {
+    pub model_id: String,
+    pub cached: bool,
+    pub runtime_status: String,
+    pub error: Option<String>,
+    pub cached_models: Vec<String>,
+    pub pending_model: Option<String>,
+    pub pending_state: Option<String>,
+}
+
 #[tauri::command]
 pub fn get_supported_embedding_models() -> Vec<model_registry::ModelInfo> {
     model_registry::SUPPORTED_MODELS.to_vec()
@@ -25,6 +37,48 @@ pub fn get_active_embedding_model(state: State<'_, AppState>) -> Result<String, 
         |row| row.get(0),
     )
     .map_err(|error| format!("Active model unavailable: {error}"))
+}
+
+#[tauri::command]
+pub fn get_embedding_model_status(
+    state: State<'_, AppState>,
+) -> Result<EmbeddingModelStatus, String> {
+    let model_id = get_active_embedding_model(state.clone())?;
+    let cached = crate::services::model_loader::is_cached(&model_id, &state.model_cache_dir);
+    let runtime_status = match *state
+        .embedding_status
+        .lock()
+        .map_err(|_| "Embedding status unavailable".to_string())?
+    {
+        crate::state::EmbeddingStatus::Deferred => "deferred",
+        crate::state::EmbeddingStatus::Loading => "loading",
+        crate::state::EmbeddingStatus::Ready => "ready",
+        crate::state::EmbeddingStatus::Unavailable => "unavailable",
+    };
+    let (pending_model, pending_state) = {
+        let conn = state.db.lock().map_err(|_| "Database unavailable".to_string())?;
+        conn.query_row(
+            "SELECT model, state FROM embedding_registry WHERE slot = 'pending'",
+            [],
+            |row| Ok((Some(row.get::<_, String>(0)?), Some(row.get::<_, String>(1)?))),
+        ).unwrap_or((None, None))
+    };
+    let cached_models = model_registry::SUPPORTED_MODELS.iter()
+        .filter(|model| crate::services::model_loader::is_cached(model.id, &state.model_cache_dir))
+        .map(|model| model.id.to_string())
+        .collect();
+    let error = state.embedding_error.lock()
+        .map_err(|_| "Embedding error unavailable".to_string())?
+        .clone();
+    Ok(EmbeddingModelStatus {
+        model_id,
+        cached,
+        runtime_status: runtime_status.to_string(),
+        error,
+        cached_models,
+        pending_model,
+        pending_state,
+    })
 }
 
 #[tauri::command]

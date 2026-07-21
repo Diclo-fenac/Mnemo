@@ -56,7 +56,9 @@ pub fn refresh_session(conn: &Connection, session_id: &str) -> rusqlite::Result<
     for row in rows {
         let (content, app_name, source_url) = row?;
         count += 1;
-        if let Some(app) = app_name.filter(|value| !value.trim().is_empty()) {
+        if let Some(app) = app_name.filter(|value| {
+            !value.trim().is_empty() && !value.trim().eq_ignore_ascii_case("unknown")
+        }) {
             apps.insert(app);
         }
         if let Some(url) = source_url {

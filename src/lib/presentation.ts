@@ -6,6 +6,10 @@ export function timeAgo(epoch: number): string {
   return `${Math.floor(diff / 86_400_000)}d ago`;
 }
 
+export function formatTimelineTime(epoch: number): string {
+  return new Intl.DateTimeFormat(undefined, { hour: "numeric", minute: "2-digit" }).format(new Date(epoch));
+}
+
 export function formatDuration(milliseconds: number): string {
   const minutes = Math.max(0, Math.round(milliseconds / 60_000));
   if (minutes < 60) return `${minutes}m`;

@@ -134,4 +134,19 @@ mod tests {
             .unwrap();
         assert_eq!(purge_expired(&mut conn, 4_000_000_000).unwrap(), 0);
     }
+
+    #[test]
+    fn invalid_retention_values_fail_safe() {
+        for days in [Some(0), Some(-1), Some(MAX_RETENTION_DAYS + 1)] {
+            let mut conn = connection(days);
+            conn.execute("INSERT INTO clips VALUES ('old', 0, 0)", [])
+                .unwrap();
+            assert_eq!(purge_expired(&mut conn, 4_000_000_000).unwrap(), 0);
+            assert_eq!(
+                conn.query_row("SELECT COUNT(*) FROM clips", [], |row| row.get::<_, i64>(0))
+                    .unwrap(),
+                1
+            );
+        }
+    }
 }

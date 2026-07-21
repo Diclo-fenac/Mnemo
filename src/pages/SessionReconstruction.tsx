@@ -3,7 +3,7 @@ import { useParams, Link } from "react-router-dom";
 import { invoke } from "@tauri-apps/api/core";
 import { ArrowLeft, BrainCircuit, Pause, Play, Sparkles } from "lucide-react";
 import { ClipCard } from "../components/ClipCard";
-import { formatDuration, formatSessionRange, timeAgo } from "../lib/presentation";
+import { formatDuration, formatSessionRange, formatTimelineTime, timeAgo } from "../lib/presentation";
 import type { SessionReconstruction as Reconstruction } from "../types";
 
 export function SessionReconstruction() {
@@ -40,11 +40,11 @@ export function SessionReconstruction() {
     );
   }
 
-  if (!data) return <section className="page"><Link to="/" className="back-link"><ArrowLeft size={16} /> Back to Timeline</Link><p className="eyebrow">Session context</p><h1 className="page-title">Session unavailable</h1><p className="muted-copy" role="alert">{error || "This session could not be loaded."}</p></section>;
+  if (!data) return <section className="page"><Link to="/timeline" className="back-link"><ArrowLeft size={16} /> Back to Timeline</Link><p className="eyebrow">Session context</p><h1 className="page-title">Session unavailable</h1><p className="muted-copy" role="alert">{error || "This session could not be loaded."}</p></section>;
   const { session, clips } = data;
   return (
     <section className="page">
-      <Link to="/" className="inline-flex items-center gap-2 text-sm text-[var(--color-muted)] hover:text-[var(--color-charcoal)] mb-8 transition-colors">
+      <Link to="/timeline" className="inline-flex items-center gap-2 text-sm text-[var(--color-muted)] hover:text-[var(--color-charcoal)] mb-8 transition-colors">
         <ArrowLeft size={16} /> Back to Timeline
       </Link>
       {error && <div className="error-banner" role="alert">{error}</div>}
@@ -57,26 +57,25 @@ export function SessionReconstruction() {
         <p className="page-copy">{formatSessionRange(session.startedAt, session.endedAt)} · {formatDuration(session.durationMs)} · {session.clipCount} captured clips</p>
       </div>
       <div className="reconstruction-toolbar"><button className="primary-button" onClick={togglePlayback}>{playing ? <Pause size={16} /> : <Play size={16} />}{playing ? "Pause" : visibleCount >= clips.length ? "Replay" : "Play"}</button><label className="toggle-label"><input type="checkbox" checked={autoPlay} onChange={toggleAutoPlay} /> Auto-play</label></div>
-      <section className="reconstruction-meta"><div><span className="meta-label">Sources</span>{data.sourceBreakdown.length ? data.sourceBreakdown.map((source) => <span className="source-chip" key={source.label}>{source.sourceType === "web" ? "Web" : "App"} · {source.label} <b>{source.count}</b></span>) : <span className="muted-copy">No source information</span>}</div><div><span className="meta-label">Topics</span>{session.keyTopics.length ? session.keyTopics.map((topic) => <span className="tag" key={topic}>{topic}</span>) : <span className="muted-copy">Still learning this session</span>}</div></section>
-      <div className="relative border-l-2 border-[var(--color-soft-border)] ml-4 pl-8 pb-12 space-y-12">
-        {clips.slice(0, visibleCount).map((clip) => (
-          <div key={clip.id} className="relative">
-            <div className="absolute -left-[41px] top-4 w-4 h-4 rounded-full border-4 border-[var(--color-soft-white)] bg-[var(--color-warm-sand)]" />
-            <span className="timeline-time">{timeAgo(clip.copiedAt)}</span>
-            <ClipCard clip={clip} />
-            
-            {/* If there's context like a page title, render a semantic edge tag */}
-            {clip.pageTitle && (
-              <div className="mt-3 inline-flex text-xs bg-[var(--color-warm-sand)] px-2 py-1 rounded text-[var(--color-charcoal)] opacity-80">
-                Found on: {clip.pageTitle}
-              </div>
-            )}
-          </div>
-        ))}
-        {clips.length === 0 && (
-          <p className="text-[var(--color-muted)]">No memories found for this session.</p>
-        )}
-      </div>
+      <section className="reconstruction-meta"><div><span className="meta-label">Sources</span>{data.sourceBreakdown.length ? data.sourceBreakdown.map((source) => <span className="source-chip" key={`${source.sourceType}-${source.label}`}><span>{source.sourceType === "web" ? "Web" : source.sourceType === "app" ? "App" : "Unverified"}</span> · {source.label} <b>{source.count}</b></span>) : <span className="muted-copy">No source information</span>}</div><div><span className="meta-label">Topics</span>{session.keyTopics.length ? session.keyTopics.map((topic) => <span className="tag" key={topic}>{topic}</span>) : <span className="muted-copy">Still learning this session</span>}</div></section>
+      {clips.length === 0 ? (
+        <div className="empty-inline" role="status">
+          <p className="eyebrow">No captured memories</p>
+          <p className="muted-copy">This session has no clips to reconstruct.</p>
+        </div>
+      ) : (
+        <div className="relative border-l-2 border-[var(--color-soft-border)] ml-4 pl-8 pb-12 space-y-12">
+          {clips.slice(0, visibleCount).map((clip, index) => (
+            <div key={clip.id} className="relative">
+              <div className="absolute -left-[41px] top-4 w-4 h-4 rounded-full border-4 border-[var(--color-soft-white)] bg-[var(--color-warm-sand)]" />
+              <span className="timeline-time">{formatTimelineTime(clip.copiedAt)} · {timeAgo(clip.copiedAt)}</span>
+              {index === 0 && <span className="timeline-marker">Starting point</span>}
+              {index === clips.length - 1 && <span className="timeline-marker">Final result</span>}
+              <ClipCard clip={clip} />
+            </div>
+          ))}
+        </div>
+      )}
       {data.connections.length > 0 && <section className="connections-panel"><p className="eyebrow"><Sparkles size={13} /> Cross-session memory</p>{data.connections.map((connection) => <p key={connection.clipId}>Connects to “{connection.contentPreview}” from {timeAgo(connection.copiedAt)} ({Math.round(connection.similarity * 100)}% similarity).</p>)}</section>}
     </section>
   );

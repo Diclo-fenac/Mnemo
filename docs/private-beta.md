@@ -4,6 +4,10 @@ This checklist is for the Linux AppImage beta. It assumes a fresh local
 database and a small tester group. Feedback stays outside the app through
 GitHub Issues.
 
+For the public-release gate, use [`public-release-validation.md`](public-release-validation.md),
+which distinguishes automated checks from clean-machine and signed-release
+validation.
+
 ## Release prerequisites
 
 - [ ] Generate a Tauri updater key outside the repository.

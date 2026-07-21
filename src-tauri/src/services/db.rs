@@ -104,6 +104,11 @@ CREATE TABLE IF NOT EXISTS settings (
   extension_enabled INTEGER DEFAULT 0,
   ollama_enabled INTEGER DEFAULT 0,
   ollama_url TEXT DEFAULT 'http://localhost:11434',
+  ai_provider TEXT NOT NULL DEFAULT 'none',
+  ai_model TEXT NOT NULL DEFAULT 'llama3.2:3b',
+  ai_api_key TEXT,
+  ai_ollama_url TEXT NOT NULL DEFAULT 'http://localhost:11434',
+  ai_cloud_consent INTEGER NOT NULL DEFAULT 0,
   capture_enabled INTEGER NOT NULL DEFAULT 0,
   browser_context_enabled INTEGER NOT NULL DEFAULT 0,
   appearance TEXT NOT NULL DEFAULT 'dark',
@@ -344,6 +349,14 @@ fn migrate_columns(connection: &Connection) -> Result<(), Box<dyn std::error::Er
         ("browser_context_enabled", "INTEGER NOT NULL DEFAULT 0"),
         ("appearance", "TEXT NOT NULL DEFAULT 'dark'"),
         ("onboarding_completed", "INTEGER NOT NULL DEFAULT 0"),
+        ("ai_provider", "TEXT NOT NULL DEFAULT 'none'"),
+        ("ai_model", "TEXT NOT NULL DEFAULT 'llama3.2:3b'"),
+        ("ai_api_key", "TEXT"),
+        (
+            "ai_ollama_url",
+            "TEXT NOT NULL DEFAULT 'http://localhost:11434'",
+        ),
+        ("ai_cloud_consent", "INTEGER NOT NULL DEFAULT 0"),
     ];
     for (name, definition) in settings_additions {
         if !settings_columns.contains(name) {
@@ -352,6 +365,13 @@ fn migrate_columns(connection: &Connection) -> Result<(), Box<dyn std::error::Er
             ))?;
         }
     }
+
+    // Preserve the legacy Ollama opt-in when introducing the provider selector.
+    connection.execute(
+        "UPDATE settings SET ai_provider = 'ollama', ai_ollama_url = ollama_url
+         WHERE id = 1 AND ai_provider = 'none' AND ollama_enabled = 1",
+        [],
+    )?;
 
     connection.execute_batch(
         "CREATE INDEX IF NOT EXISTS idx_clips_content_hash ON clips(content_hash);

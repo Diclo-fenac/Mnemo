@@ -4,6 +4,8 @@ pub struct WindowInfo {
     pub window_title: String,
 }
 
+const MAX_WINDOW_FIELD_LENGTH: usize = 512;
+
 impl Default for WindowInfo {
     fn default() -> Self {
         Self {
@@ -187,30 +189,54 @@ fn gnome_shell_active_window() -> Option<WindowInfo> {
 
 #[cfg(target_os = "linux")]
 fn xdotool_active_window() -> Option<WindowInfo> {
+    let id = std::process::Command::new("xdotool")
+        .args(["getactivewindow"])
+        .output()
+        .ok()?;
+    if !id.status.success() {
+        return None;
+    }
+    let id = String::from_utf8_lossy(&id.stdout).trim().to_string();
+    if id.is_empty() {
+        return None;
+    }
     let title = std::process::Command::new("xdotool")
-        .args(["getactivewindow", "getwindowname"])
+        .args(["getwindowname", &id])
         .output()
-        .ok()?;
-    if !title.status.success() {
-        return None;
-    }
-    let title = String::from_utf8_lossy(&title.stdout).trim().to_string();
-    let pid = std::process::Command::new("xdotool")
-        .args(["getactivewindow", "getwindowpid"])
-        .output()
-        .ok()?;
-    if !pid.status.success() {
-        return None;
-    }
-    let pid = String::from_utf8_lossy(&pid.stdout)
-        .trim()
-        .parse::<u32>()
-        .ok()?;
-    let app_name = std::fs::read_to_string(format!("/proc/{pid}/comm"))
         .ok()
-        .map(|value| value.trim().to_string())
-        .filter(|value| !value.is_empty())?;
-    parse_xdotool_window(&app_name, &title)
+        .filter(|output| output.status.success())
+        .map(|output| String::from_utf8_lossy(&output.stdout).trim().to_string())
+        .unwrap_or_default();
+    let pid = std::process::Command::new("xdotool")
+        .args(["getwindowpid", &id])
+        .output()
+        .ok()
+        .filter(|output| output.status.success())
+        .and_then(|output| {
+            String::from_utf8_lossy(&output.stdout)
+                .trim()
+                .parse::<u32>()
+                .ok()
+        });
+    if let Some(pid) = pid {
+        if let Some(app_name) = std::fs::read_to_string(format!("/proc/{pid}/comm"))
+            .ok()
+            .map(|value| value.trim().to_string())
+            .filter(|value| !value.is_empty())
+        {
+            return parse_xdotool_window(&app_name, &title);
+        }
+    }
+
+    // Some desktop-owned X11 windows have no PID. WM_CLASS still gives us a
+    // truthful application identity without inventing one from the title.
+    std::process::Command::new("xprop")
+        .args(["-id", &id, "WM_CLASS", "_NET_WM_NAME", "WM_NAME"])
+        .output()
+        .ok()
+        .filter(|output| output.status.success())
+        .and_then(|output| parse_xprop_window(&String::from_utf8_lossy(&output.stdout)))
+        .or_else(|| parse_xdotool_window("X11 window", &title))
 }
 
 #[cfg(target_os = "macos")]
@@ -231,12 +257,9 @@ fn get_active_window_macos() -> WindowInfo {
         .output()
     {
         if output.status.success() {
-            let result = String::from_utf8_lossy(&output.stdout).trim().to_string();
-            let parts: Vec<&str> = result.splitn(2, "|||").collect();
-            return WindowInfo {
-                app_name: parts.first().unwrap_or(&"Unknown").to_string(),
-                window_title: parts.get(1).unwrap_or(&"").to_string(),
-            };
+            if let Some(window) = parse_delimited_window(&String::from_utf8_lossy(&output.stdout)) {
+                return window;
+            }
         }
     }
     WindowInfo::default()
@@ -266,13 +289,10 @@ $process = Get-Process -Id $pid -ErrorAction SilentlyContinue;
         .output()
     {
         if output.status.success() {
-            let result = String::from_utf8_lossy(&output.stdout).trim().to_string();
-            let parts: Vec<&str> = result.splitn(2, "|||").collect();
-            if let Some(name) = parts.first().filter(|name| !name.trim().is_empty()) {
-                return WindowInfo {
-                    app_name: name.trim().to_string(),
-                    window_title: parts.get(1).unwrap_or(&"").trim().to_string(),
-                };
+            if let Some(window) = parse_delimited_window(&String::from_utf8_lossy(&output.stdout)) {
+                if window.app_name != "Unknown" {
+                    return window;
+                }
             }
         }
     }
@@ -301,10 +321,33 @@ fn parse_xprop_window(value: &str) -> Option<WindowInfo> {
         .and_then(|line| line.split('"').nth(1))
         .unwrap_or_default()
         .to_string();
+    parse_window_fields(app_name, &window_title)
+}
+
+#[cfg(any(target_os = "macos", target_os = "windows", test))]
+fn parse_delimited_window(value: &str) -> Option<WindowInfo> {
+    let (app_name, window_title) = value.trim().split_once("|||")?;
+    parse_window_fields(app_name, window_title)
+}
+
+fn parse_window_fields(app_name: &str, window_title: &str) -> Option<WindowInfo> {
+    let app_name = sanitize_field(app_name);
+    if app_name.is_empty() || app_name == "Unknown" {
+        return None;
+    }
     Some(WindowInfo {
-        app_name: app_name.to_string(),
-        window_title,
+        app_name,
+        window_title: sanitize_field(window_title),
     })
+}
+
+fn sanitize_field(value: &str) -> String {
+    value
+        .trim()
+        .chars()
+        .filter(|character| !character.is_control())
+        .take(MAX_WINDOW_FIELD_LENGTH)
+        .collect()
 }
 
 fn extract_json_string(json: &str, key: &str) -> String {
@@ -329,14 +372,7 @@ fn extract_json_string(json: &str, key: &str) -> String {
 
 #[cfg(target_os = "linux")]
 fn parse_xdotool_window(app_name: &str, window_title: &str) -> Option<WindowInfo> {
-    let app_name = app_name.trim();
-    if app_name.is_empty() {
-        return None;
-    }
-    Some(WindowInfo {
-        app_name: app_name.to_string(),
-        window_title: window_title.trim().to_string(),
-    })
+    parse_window_fields(app_name, window_title)
 }
 
 #[cfg(test)]
@@ -380,5 +416,21 @@ mod tests {
             })
         );
         assert_eq!(parse_xdotool_window("", "Terminal"), None);
+    }
+
+    #[test]
+    fn bounds_and_sanitizes_provider_output() {
+        let long_name = format!("  editor\n{}", "x".repeat(600));
+        let window = parse_delimited_window(&format!("{long_name}||| title\r\n")).unwrap();
+        assert_eq!(window.app_name.chars().count(), MAX_WINDOW_FIELD_LENGTH);
+        assert!(!window.app_name.contains('\n'));
+        assert_eq!(window.window_title, "title");
+    }
+
+    #[test]
+    fn rejects_unknown_or_malformed_provider_output() {
+        assert_eq!(parse_delimited_window("Unknown|||title"), None);
+        assert_eq!(parse_delimited_window("editor"), None);
+        assert_eq!(parse_window_fields("\n", "title"), None);
     }
 }

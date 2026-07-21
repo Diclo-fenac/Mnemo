@@ -58,6 +58,7 @@ pub fn update_capture_preferences(
 #[serde(rename_all = "camelCase")]
 pub struct CompleteOnboardingInput {
     pub capture_enabled: bool,
+    pub browser_context_enabled: Option<bool>,
 }
 
 #[tauri::command]
@@ -72,16 +73,19 @@ pub fn complete_onboarding(
             .map_err(|error| format!("Unable to load preferences: {error}"))?;
         preferences.onboarding_completed = true;
         preferences.capture_enabled = input.capture_enabled;
+        preferences.browser_context_enabled = input.browser_context_enabled.unwrap_or(false);
         capture_state::persist(&conn, &preferences)
             .map_err(|error| format!("Unable to save onboarding: {error}"))?;
         preferences
     };
 
     capture_state::set_enabled(&state.capture_enabled, next.capture_enabled);
+    capture_state::set_enabled(&state.browser_context_enabled, next.browser_context_enabled);
     if crate::services::embedder::start_embedder(
         state.db.clone(),
         state.embedder.clone(),
         state.embedding_status.clone(),
+        state.embedding_error.clone(),
         state.model_cache_dir.clone(),
         state.model_start_requested.clone(),
     ) {
@@ -100,6 +104,7 @@ pub fn retry_embedding_model(
         state.db.clone(),
         state.embedder.clone(),
         state.embedding_status.clone(),
+        state.embedding_error.clone(),
         state.model_cache_dir.clone(),
         state.model_start_requested.clone(),
     ) {
@@ -107,6 +112,22 @@ pub fn retry_embedding_model(
         return Ok(true);
     }
     Ok(false)
+}
+
+#[tauri::command]
+pub fn toggle_capture(
+    app: tauri::AppHandle,
+    state: State<'_, AppState>,
+) -> Result<CapturePreferences, String> {
+    let conn = state.db.lock().map_err(|_| "DB unavailable".to_string())?;
+    let mut next = capture_state::load(&conn)
+        .map_err(|error| format!("Unable to load preferences: {error}"))?;
+    next.capture_enabled = !next.capture_enabled;
+    capture_state::persist(&conn, &next)
+        .map_err(|error| format!("Unable to save capture state: {error}"))?;
+    capture_state::set_enabled(&state.capture_enabled, next.capture_enabled);
+    let _ = app.emit("capture-state-changed", next.capture_enabled);
+    Ok(next)
 }
 
 #[tauri::command]

@@ -1,5 +1,10 @@
 use crate::state::BrowserContext;
-use axum::{extract::State, http::StatusCode, routing::post, Json, Router};
+use axum::{
+    extract::State,
+    http::StatusCode,
+    routing::{get, post},
+    Json, Router,
+};
 use chrono::Utc;
 use serde::Deserialize;
 use std::sync::{atomic::AtomicBool, Arc, Mutex};
@@ -31,6 +36,7 @@ pub fn start_server(context_state: Arc<Mutex<Option<BrowserContext>>>, enabled: 
         };
         rt.block_on(async {
             let app = Router::new()
+                .route("/health", get(handle_health))
                 .route("/context", post(handle_context))
                 .with_state(ServerState {
                     context: context_state,
@@ -50,6 +56,10 @@ pub fn start_server(context_state: Arc<Mutex<Option<BrowserContext>>>, enabled: 
             }
         });
     });
+}
+
+async fn handle_health() -> &'static str {
+    "ok"
 }
 
 async fn handle_context(

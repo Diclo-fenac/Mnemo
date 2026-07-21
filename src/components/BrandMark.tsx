@@ -1,5 +1,4 @@
-import traceLoop from "../assets/trace-loop.svg";
-import traceLoopMono from "../assets/trace-loop-mono.svg";
+import mnemoLogo from "../assets/mnemo-logo.png";
 
 type BrandMarkProps = {
   size?: number;
@@ -8,11 +7,20 @@ type BrandMarkProps = {
 };
 
 export function BrandMark({ size = 28, variant = "full", className }: BrandMarkProps) {
-  const source = variant === "mono" ? traceLoopMono : traceLoop;
+  const wordmark = variant === "wordmark";
   return (
-    <span className={`brand-mark brand-mark-${variant} ${className ?? ""}`.trim()}>
-      <img src={source} width={size} height={size} alt="" aria-hidden="true" />
-      {variant === "wordmark" && <span className="brand-wordmark">Mnemo</span>}
+    <span
+      className={`brand-mark brand-mark-${variant} ${className ?? ""}`.trim()}
+      style={{ width: wordmark ? size * 4.4 : size, height: size }}
+      aria-label="Mnemo"
+    >
+      <img
+        className="brand-mark-logo"
+        src={mnemoLogo}
+        width={wordmark ? size * 4.4 : size * 2.2}
+        height={wordmark ? size * 2.2 : size * 1.1}
+        alt="Mnemo"
+      />
     </span>
   );
 }

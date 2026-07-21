@@ -1,4 +1,5 @@
 pub mod active_window;
+pub mod ai;
 pub mod capture_state;
 pub mod content_dedup;
 pub mod db;

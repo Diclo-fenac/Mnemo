@@ -5,6 +5,7 @@ import { Search as SearchIcon, Loader2 } from "lucide-react";
 import type { Clip, SearchResult } from "../types";
 import { timeAgo } from "../lib/presentation";
 import { BrandMark } from "../components/BrandMark";
+import { deriveSourceProvenance } from "../lib/sourceProvenance";
 
 export function QuickSearchPopup() {
   const [query, setQuery] = useState("");
@@ -103,9 +104,9 @@ export function QuickSearchPopup() {
           >
             <div className="flex-1 overflow-hidden">
               <div className="text-xs text-[var(--color-muted)] mb-1 flex gap-2">
-                <span>{clip.appName || clip.contentType}</span><span>{timeAgo(clip.copiedAt)}</span>
+                <span>{deriveSourceProvenance(clip).label}</span><span>{timeAgo(clip.copiedAt)}</span>
                 <span className="opacity-50">•</span>
-                <span className="truncate">{clip.pageTitle || clip.windowTitle}</span>
+                <span className="truncate">{deriveSourceProvenance(clip).detail}</span>
               </div>
               <div className="text-sm text-[var(--color-charcoal)] truncate">
                 {clip.content}

@@ -74,6 +74,20 @@ pub fn list_sessions(
     limit: Option<i64>,
 ) -> Result<Vec<SessionSummary>, String> {
     let conn = state.db.lock().map_err(|_| "DB unavailable".to_string())?;
+    let session_ids: Vec<String> = {
+        let mut ids = conn
+            .prepare("SELECT id FROM sessions")
+            .map_err(|error| error.to_string())?;
+        let rows = ids.query_map([], |row| row.get(0))
+            .map_err(|error| error.to_string())?
+            .collect::<Result<Vec<_>, _>>()
+            .map_err(|error| error.to_string())?;
+        rows
+    };
+    for session_id in session_ids {
+        crate::services::session_builder::refresh_session(&conn, &session_id)
+            .map_err(|error| format!("Unable to refresh session: {error}"))?;
+    }
     let mut statement = conn
         .prepare(
             "SELECT id, label, summary, key_topics, source_apps, source_urls, clip_count, started_at, ended_at
@@ -94,6 +108,8 @@ pub fn get_session_reconstruction(
     session_id: String,
 ) -> Result<SessionReconstruction, String> {
     let conn = state.db.lock().map_err(|_| "DB unavailable".to_string())?;
+    crate::services::session_builder::refresh_session(&conn, &session_id)
+        .map_err(|error| format!("Unable to refresh session: {error}"))?;
     let session = conn
         .query_row(
             "SELECT id, label, summary, key_topics, source_apps, source_urls, clip_count, started_at, ended_at
@@ -295,15 +311,22 @@ fn clip_from_row(row: &Row<'_>) -> rusqlite::Result<Clip> {
 fn source_breakdown(clips: &[Clip]) -> Vec<SourceStat> {
     let mut sources = BTreeMap::<(String, String), i64>::new();
     for clip in clips {
-        let (label, source_type) = if let Some(url) = &clip.source_url {
+        let source_url = clip
+            .source_url
+            .as_deref()
+            .map(str::trim)
+            .filter(|url| !url.is_empty());
+        let app_name = clip
+            .app_name
+            .as_deref()
+            .map(str::trim)
+            .filter(|app| !app.is_empty() && !app.eq_ignore_ascii_case("unknown"));
+        let (label, source_type) = if let Some(url) = source_url {
             (domain(url), "web".to_string())
+        } else if let Some(app) = app_name {
+            (app.to_string(), "app".to_string())
         } else {
-            (
-                clip.app_name
-                    .clone()
-                    .unwrap_or_else(|| "Unknown app".to_string()),
-                "app".to_string(),
-            )
+            ("Source unavailable".to_string(), "unavailable".to_string())
         };
         *sources.entry((label, source_type)).or_default() += 1;
     }

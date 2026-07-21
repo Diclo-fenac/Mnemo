@@ -66,3 +66,49 @@ pub fn evaluate(content: &str, rules: &[FilterRule]) -> FilterResult {
         matched_rule: None,
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn rule(pattern: &str, action: &str) -> FilterRule {
+        FilterRule {
+            rule_type: "regex".into(),
+            pattern: pattern.into(),
+            action: action.into(),
+        }
+    }
+
+    #[test]
+    fn blocks_sensitive_content_before_persistence() {
+        let result = evaluate(
+            "password=correct horse battery staple",
+            &[rule("password\\s*=", "block")],
+        );
+        assert!(result.blocked);
+        assert_eq!(result.matched_rule.as_deref(), Some("password\\s*="));
+    }
+
+    #[test]
+    fn ask_rules_are_blocking_until_explicitly_handled() {
+        let result = evaluate(
+            "4111 1111 1111 1111",
+            &[rule(r"\b\d{4}([ -]?\d{4}){3}\b", "ask")],
+        );
+        assert!(result.blocked);
+    }
+
+    #[test]
+    fn non_blocking_rules_do_not_hide_content() {
+        let result = evaluate("internal project note", &[rule("internal", "tag")]);
+        assert!(!result.blocked);
+        assert_eq!(result.matched_rule.as_deref(), Some("internal"));
+    }
+
+    #[test]
+    fn invalid_rules_fail_open_without_a_match() {
+        let result = evaluate("ordinary text", &[rule("[", "block")]);
+        assert!(!result.blocked);
+        assert!(result.matched_rule.is_none());
+    }
+}

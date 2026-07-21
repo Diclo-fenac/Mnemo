@@ -1,6 +1,5 @@
 import { lazy, Suspense, useEffect } from "react";
 import { Route, Routes, useNavigate } from "react-router-dom";
-import { MascotIndicator } from "./components/MascotIndicator";
 import { Sidebar } from "./components/Sidebar";
 import { QuickSearchPopup } from "./pages/QuickSearchPopup";
 import { useClipEvents } from "./hooks/useClipEvents";
@@ -55,6 +54,10 @@ export default function App() {
         navigate("/search");
         requestAnimationFrame(() => document.querySelector<HTMLInputElement>("[data-mnemo-search]")?.focus());
       }
+      if ((event.metaKey || event.ctrlKey) && event.shiftKey && event.key.toLowerCase() === "m") {
+        event.preventDefault();
+        void invoke<CapturePreferences>("toggle_capture").then(setCapturePreferences).catch(() => undefined);
+      }
     }
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
@@ -84,7 +87,6 @@ export default function App() {
           </Routes>
         </Suspense>
       </main>
-      <MascotIndicator />
     </div>
   );
 }

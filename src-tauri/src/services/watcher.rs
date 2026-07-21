@@ -116,6 +116,11 @@ pub fn start(
             last_copied_at = now;
 
             let window_info = active_window::get_active_window();
+            let app_name = (!window_info.app_name.trim().is_empty()
+                && !window_info.app_name.eq_ignore_ascii_case("unknown"))
+            .then(|| window_info.app_name.clone());
+            let window_title = (!window_info.window_title.trim().is_empty())
+                .then(|| window_info.window_title.clone());
 
             // Context logic
             let (mut source_url, mut page_title) = (None, None);
@@ -136,7 +141,7 @@ pub fn start(
             let normalized_content = content_dedup::normalize_content(trimmed);
             let content_hash = content_dedup::content_hash(&normalized_content);
             let source = source_intent::detect(
-                Some(&window_info.app_name),
+                app_name.as_deref(),
                 source_url.as_deref(),
                 page_title.as_deref(),
             );
@@ -165,8 +170,8 @@ pub fn start(
                         clip_id,
                         trimmed,
                         content_type,
-                        window_info.app_name.clone(),
-                        window_info.window_title,
+                        app_name,
+                        window_title,
                         language,
                         now,
                         current_session_id,
@@ -233,7 +238,7 @@ pub fn start(
                 clip_id,
                 content_preview: preview,
                 content_type: content_type.to_string(),
-                app_name: Some(window_info.app_name),
+                app_name,
                 copied_at: now,
             };
 
