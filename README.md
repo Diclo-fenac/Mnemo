@@ -2,127 +2,91 @@
 
 > Your clipboard, with memory.
 
-Mnemo is a local-first desktop clipboard manager that reconstructs research sessions, relates copied items across time, and remembers the context around what you saved. It uses local storage and local intelligence only: no account, cloud, or server is required.
+Mnemo is a **local-first, privacy-respecting clipboard assistant** that turns scattered snippets, links, terminal logs, and notes into an intelligent research memory. Rather than just holding the last text you copied, Mnemo remembers the context, reconstructs your research sessions, relates information over time, and answers questions using only your saved memories.
 
-**Project:** [github.com/Diclo-fenac/Mnemo](https://github.com/Diclo-fenac/Mnemo)
+---
 
-## Why Mnemo
+## 🌟 Key Features
 
-Mnemo was inspired by a common research problem: a clipboard remembers the
-text, but not why it was copied or how it relates to something copied later.
-Mnemo turns scattered snippets, links, commands, and notes into a private
-research memory. It can reconstruct a session, show the available sources and
-topics, connect related clips across sessions, and produce a short grounded
-answer that links back to the original evidence.
+- **Privacy-First & Opt-In Capture**: By default, clipboard capture is paused. Enable it manually when you begin research, and pause it when you're done. Your data never leaves your device.
+- **Semantic & Keyword Search**: Press `Ctrl+Shift+V` (or use the search bar) to search through your clipboard history by exact words or semantic meaning.
+- **Research Sessions & Timeline**: Mnemo reconstructs your workflow by grouping clips into continuous, logical timeline sessions, showing how your research progressed.
+- **Interactive Memory Graph**: Explore semantic and temporal connections visually. See how a snippet copied today relates to a concept from last week.
+- **Grounded AI Answers (Offline-first / Hybrid)**: Ask Mnemo questions. It generates answers grounded strictly in your captured evidence, citing the exact source clips.
+  - **Local/Offline AI**: Uses a local semantic model (downloaded automatically post-onboarding) or Ollama.
+  - **Cloud Optional**: Connect OpenAI or Gemini if desired; cloud access is strictly opt-in and sends only relevant snippets for that query.
+- **Browser Context Bridge**: Attach web page titles and verified URLs to your copies. Install the optional extension (supporting Chrome, Brave, Edge, and Firefox) to bridge browser context via a loopback-only (`127.0.0.1:17531`) connection.
 
-## Judge demo flow
+---
 
-1. Launch Mnemo and complete onboarding. Capture starts paused by design.
-2. Enable **Clipboard Capture** from the sidebar or Settings.
-3. Copy a few safe snippets from documentation, a code editor, and a terminal.
-4. Open **Timeline** to see the captures grouped into a research session.
-5. Press `Ctrl/Cmd + K`, search for a topic, and inspect the cited clips in the
-   grounded answer.
-6. Open **Memory graph** to explore semantic and temporal connections.
-7. Optional: enable **Browser Context**, install the Context Bridge extension,
-   and copy from a web page to attach its verified URL and title.
+## 🚀 Getting Started
 
-The first local embedding model downloads after onboarding. Keyword search,
-capture, sessions, and the rest of the interface remain usable while the model
-prepares or if model download is unavailable.
+### Installation (Private Beta)
 
-## What Mnemo does
+1. Download the signed Linux AppImage from the latest GitHub Release.
+2. Make it executable and launch it:
+   ```bash
+   chmod +x Mnemo.AppImage
+   ./Mnemo.AppImage
+   ```
 
-Mnemo captures clipboard items locally when you explicitly enable capture,
-groups them into research sessions, connects related memories, and lets you
-search by exact text or meaning. Browser context is optional: the Chrome or
-Firefox Context Bridge can attach a copied page's URL and title through a
-loopback-only connection. No account, cloud sync, or remote clipboard server is
-required.
+### Quick Walkthrough
 
-The private beta starts with capture paused and retention set to Never. The
-local semantic model downloads after onboarding; keyword search remains usable
-while it prepares or when the download is unavailable.
+1. **Complete Onboarding**: Start the app. The local semantic model starts downloading in the background. Keyword search and regular features are ready immediately!
+2. **Enable Capture**: Toggle **Clipboard Capture** from the sidebar or press `Ctrl+Shift+M`.
+3. **Save Memories**: Go ahead and copy code snippets, documentation paragraphs, or terminal output.
+4. **Browse Timeline**: Open the **Timeline** tab to see your clipboard history organized neatly into sessions.
+5. **Ask/Search**: Press `Ctrl+Shift+V` to open Search. Ask a question like *"How do I configure the AI provider?"* and watch Mnemo answer using your copied clips as citations.
+6. **Optional Browser Bridge**: Follow the setup in [`extension/README.md`](extension/README.md) to enable page title and URL metadata integration.
 
-## Private beta install
+---
 
-Download the signed Linux AppImage from the latest GitHub Release, make it
-executable, and launch it:
+## 🛡️ Privacy & Security Commitments
 
+- **No Cloud Required**: Mnemo functions completely offline. Your clipboard history, database, and embedding index live solely on your machine.
+- **Manual Toggle & Hotkeys**:
+  - `Ctrl+Shift+M`: Quickly toggle clipboard capture on/off.
+  - `Ctrl+Shift+V`: Instantly search your memories.
+- **Explicit Cloud Consent**: If you configure a cloud AI provider (like OpenAI or Gemini), Mnemo will request permission before each query and will only send relevant evidence snippets.
+- **Automatic Retention**: Configure database auto-cleanup in Settings (defaults to retaining history indefinitely).
+
+---
+
+## 🛠️ Development Setup
+
+To run and build Mnemo from source:
+
+### Prerequisites
+- Node.js (v18+)
+- Rust stable
+- Tauri platform prerequisites
+
+### Run Locally
 ```bash
-chmod +x Mnemo.AppImage
-./Mnemo.AppImage
-```
-
-The AppImage is the supported beta distribution. It creates a fresh local
-database on first launch. Follow the optional browser setup in
-[`extension/README.md`](extension/README.md) for Chrome/Chromium and Firefox.
-
-## Privacy model
-
-- Capture is off until the user enables it.
-- `CmdOrCtrl+Shift+V` searches existing memories even when capture is paused.
-- `CmdOrCtrl+Shift+M` toggles real clipboard capture.
-- Browser context is opt-in and sends only explicit copy context to
-  `127.0.0.1:17531`.
-- Retention defaults to Never; automatic cleanup is an explicit setting.
-- If source metadata cannot be verified, Mnemo says `Source unavailable` and
-  does not guess from the clip text.
-
-## Optional AI providers
-
-Core Mnemo functionality does not require an API key. Local Ollama support is
-optional, and OpenAI or Gemini can be configured in Settings for grounded
-answers. Cloud answers require explicit consent for each request and receive
-only selected excerpts from the local search results. API keys are not included
-in this repository or required for judging.
-
-## Built with Codex and GPT-5.6
-
-Codex, powered by GPT-5.6, was used as an AI engineering collaborator during
-development. It helped inspect the existing Rust and React codebase, reason
-through the local-first architecture, implement and refine clipboard capture,
-SQLite migrations, embedding/search behavior, session reconstruction, graph
-connections, browser-context integration, optional AI providers, and release
-documentation.
-
-GPT-5.6 was also used to challenge design decisions around privacy, source
-provenance, prompt size, citation validation, model migration, fallback
-behavior, and cross-platform active-window detection. The implementation was
-reviewed and verified through Rust compilation/tests, frontend builds/tests,
-extension manifest checks, and manual product decisions. Codex did not replace
-testing or product judgment: provider credentials, desktop permissions, and
-real browser-extension behavior still require validation on the target machine.
-
-## Known beta limitations
-
-- Active-window metadata is best-effort and varies by desktop environment.
-- Linux Wayland may provide less metadata than X11; `xdotool` is an optional
-  X11 enhancement, not a hard dependency.
-- The browser extension must be installed separately and Browser Context must
-  be enabled in Mnemo.
-- OpenAI and Gemini require the tester's own API key; the local and Ollama paths
-  do not.
-
-## Development
-
-```bash
+# Install dependencies
 npm install
+
+# Start the application in development mode
 npm run tauri dev
 ```
 
-Rust stable and Tauri's platform prerequisites are required. See the planning documents in `plan/` for the architecture and feature breakdown.
-
+### Run Tests & Build
 ```bash
+# Run unit and integration tests
 npm test
+
+# Build production distribution
 npm run build
+
+# Package the browser extension
 npm run package:extension -- --verify
+
+# Run Rust tests
 cargo test --manifest-path src-tauri/Cargo.toml
 ```
 
-## Release notes
+---
 
-Signed update checks use the GitHub Release `latest.json` feed. The updater
-private key must remain outside the repository and be provided to the release
-workflow as `TAURI_SIGNING_PRIVATE_KEY`. See
-[`docs/private-beta.md`](docs/private-beta.md) before inviting testers.
+## 📄 License
+
+Mnemo is distributed under the MIT License. See [LICENSE](LICENSE) for details.
