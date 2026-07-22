@@ -47,7 +47,7 @@ export function CaptureControl() {
       <button type="button" onClick={() => { void toggle(); }} disabled={!preferences || saving} aria-pressed={enabled} aria-label="Toggle clipboard capture">
         <span />
       </button>
-      <kbd><Radio size={11} /> Shift M</kbd>
+      <kbd><Radio size={11} /> Ctrl+Shift+M</kbd>
     </div>
   );
 }
