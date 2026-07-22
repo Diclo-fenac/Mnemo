@@ -51,11 +51,11 @@ export function Chat() {
       }
       const history = messages.slice(-6).map((message) => `${message.role === "user" ? "User" : "Mnemo"}: ${message.text}`).join("\n");
       const contextualQuery = history ? `Conversation so far:\n${history}\n\nNew question: ${query}` : query;
-      const answer = await invoke<GroundedAnswer>("generate_grounded_answer", { query: contextualQuery, clipIds: results.slice(0, 5).map((result) => result.clip.id), localOnly: false, allowCloud: true });
+      const answer = await invoke<GroundedAnswer>("generate_grounded_answer", { query: contextualQuery, clipIds: results.slice(0, 5).map((result) => result.clip.id), localOnly: false, allowCloud: true, allowLocalFallback: false });
       const citations = (answer.citations ?? []).map((id) => results.find((result) => result.clip.id === id)).filter((result): result is SearchResult => Boolean(result)).map((result) => ({ id: result.clip.id, label: result.clip.pageTitle || result.clip.appName || "Captured memory", href: `/clip/${result.clip.id}` }));
       setMessages((current) => [...current, { id: Date.now() + 1, role: "assistant", text: answer.answer, source: answer.source, citations }]);
     } catch (reason) {
-      setError(reason instanceof Error ? reason.message : "Mnemo could not answer that yet.");
+      setError(readInvokeError(reason));
     } finally { setBusy(false); }
   }
 
@@ -73,3 +73,9 @@ export function Chat() {
 const demoCitations: Citation[] = [{ id: "demo-session", label: "Research session · local" }, { id: "demo-graph", label: "Memory graph · 3 links" }];
 function demoAnswer(query: string) { if (query.toLowerCase().includes("yesterday")) return "You were tracing how Mnemo groups copied research into sessions, then checking how grounded answers cite the original clips. The strongest thread connected the local embedding model, session reconstruction, and graph edges."; if (query.toLowerCase().includes("project")) return "Your latest project context centers on a local-first memory workspace: clipboard capture stays opt-in, evidence remains on-device, and optional providers receive only selected excerpts."; return "I found a related thread across your captured research: local memory capture, semantic connections, and source-backed answers are the recurring theme."; }
 function sourceLabel(source?: string) { return source === "gemini" ? "Gemini answer" : source === "openai" ? "OpenAI answer" : source === "ollama" ? "Ollama answer" : "Local evidence"; }
+function readInvokeError(reason: unknown): string {
+  if (typeof reason === "string" && reason.trim()) return reason;
+  if (reason instanceof Error && reason.message) return reason.message;
+  if (reason && typeof reason === "object" && "message" in reason && typeof reason.message === "string") return reason.message;
+  return "Mnemo could not answer that yet.";
+}

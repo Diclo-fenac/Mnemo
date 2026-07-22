@@ -130,6 +130,7 @@ pub fn generate_grounded_answer(
     clip_ids: Vec<String>,
     local_only: Option<bool>,
     allow_cloud: Option<bool>,
+    allow_local_fallback: Option<bool>,
 ) -> Result<GroundedAnswerResponse, String> {
     let conn = state
         .db
@@ -137,12 +138,26 @@ pub fn generate_grounded_answer(
         .map_err(|_| "Database unavailable".to_string())?;
     let config = read_config(&conn)?;
     let evidence = load_evidence(&conn, &clip_ids)?;
-    let local = local_only.unwrap_or(false) || config.provider == ai::Provider::None;
+    let strict_provider = !allow_local_fallback.unwrap_or(true);
+    let local = local_only.unwrap_or(false);
     if local {
+        return Ok(ai::local_answer(&query, &evidence, None).into());
+    }
+    if config.provider == ai::Provider::None {
+        if strict_provider {
+            return Err("No AI answer provider is configured. Select an available provider in Settings.".to_string());
+        }
         return Ok(ai::local_answer(&query, &evidence, None).into());
     }
     let cloud_provider = matches!(config.provider, ai::Provider::Openai | ai::Provider::Gemini);
     if cloud_provider && (!config.cloud_consent || !allow_cloud.unwrap_or(false)) {
+        if strict_provider {
+            return Err(if !config.cloud_consent {
+                "Cloud consent is required before using the configured AI provider.".to_string()
+            } else {
+                "Cloud answer permission is required before using the configured AI provider.".to_string()
+            });
+        }
         return Ok(ai::local_answer(
             &query,
             &evidence,
@@ -163,9 +178,11 @@ pub fn generate_grounded_answer(
         ai::Provider::Gemini => ai::gemini::generate(&config, &query, &evidence),
         ai::Provider::None => unreachable!(),
     };
-    Ok(result
-        .unwrap_or_else(|error| ai::local_answer(&query, &evidence, Some(error.to_string())))
-        .into())
+    match result {
+        Ok(answer) => Ok(answer.into()),
+        Err(error) if strict_provider => Err(error.to_string()),
+        Err(error) => Ok(ai::local_answer(&query, &evidence, Some(error.to_string())).into()),
+    }
 }
 
 impl From<ai::GroundedAnswer> for GroundedAnswerResponse {
