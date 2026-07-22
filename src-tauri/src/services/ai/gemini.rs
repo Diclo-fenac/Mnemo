@@ -32,9 +32,12 @@ pub fn generate(
         .and_then(|v| v.get(0))
         .and_then(|v| v.get("content"))
         .and_then(|v| v.get("parts"))
-        .and_then(|v| v.get(0))
-        .and_then(|v| v.get("text"))
-        .and_then(|v| v.as_str())
+        .and_then(|v| v.as_array())
+        .and_then(|parts| {
+            parts.iter().find_map(|part| {
+                part.get("text").and_then(|text| text.as_str())
+            })
+        })
         .ok_or(AiError::InvalidAnswer)?;
     parse_answer(
         raw,
